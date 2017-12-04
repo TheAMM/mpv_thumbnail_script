@@ -1,0 +1,11 @@
+{
+	"output" : "mpv_thumbnail_script_server.lua",
+	"files" : [
+		"lib/helpers.lua",
+		"src/options.lua",
+		"src/thumbnailer_shared.lua",
+		"src/thumbnailer_server.lua"
+	],
+	"header_prefix" : "--[ ",
+	"header_suffix" : " ]--"
+}
