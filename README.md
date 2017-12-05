@@ -3,6 +3,8 @@
 [![](docs/mpv_thumbnail_script.jpg "Thumbnail preview for Sintel (2010) on mpv's seekbar")](https://www.youtube.com/watch?v=a9cmt176WDI)
 [*Click the image or here to see the script in action*](https://www.youtube.com/watch?v=a9cmt176WDI)
 
+*(You might also be interested in [`mpv_crop_script.lua`](https://github.com/TheAMM/mpv_crop_script))*
+
 ----
 
 ## What is it?
