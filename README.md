@@ -56,6 +56,7 @@ In this file you may set the following options:
 # On Windows this defaults to %TEMP%\mpv_thumbs_cache,
 # and on other platforms to /tmp/mpv_thumbs_cache.
 # The directory will be created automatically, but must be writeable!
+# Use absolute paths, and take note that environment variables like %TEMP% are unsupported (despite the default)!
 cache_directory=/tmp/my_mpv_thumbnails
 
 # Whether to generate thumbnails automatically on video load, without a keypress
