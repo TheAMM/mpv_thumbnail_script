@@ -13,7 +13,8 @@ local Thumbnailer = {
 
         thumbnail_size = nil,
 
-        finished_thumbnails = 0
+        finished_thumbnails = 0,
+        thumbnails = {}
     }
 }
 
@@ -22,6 +23,7 @@ function Thumbnailer:clear_state()
     self.state.ready = false
     self.state.available = false
     self.state.finished_thumbnails = 0
+    self.state.thumbnails = {}
 end
 
 
@@ -30,8 +32,12 @@ function Thumbnailer:on_file_loaded()
 end
 
 function Thumbnailer:on_thumb_ready(index)
-    if index > self.state.finished_thumbnails then
-        self.state.finished_thumbnails = index
+    self.state.thumbnails[index] = true
+
+    -- Recount (just in case)
+    self.state.finished_thumbnails = 0
+    for i in pairs(self.state.thumbnails) do
+        self.state.finished_thumbnails = self.state.finished_thumbnails + 1
     end
 end
 
@@ -55,7 +61,18 @@ function Thumbnailer:update_state()
     self.state.ready = true
 
     self.state.available = false
-    if self.state.thumbnail_delta ~= nil and self.state.thumbnail_size ~= nil and self.state.thumbnail_count > 0 then
+
+    -- Make sure the file has video (and not just albumart)
+    local track_list = mp.get_property_native("track-list")
+    local has_video = false
+    for i, track in pairs(track_list) do
+        if track.type == "video" and not track.external and not track.albumart then
+            has_video = true
+            break
+        end
+    end
+
+    if has_video and self.state.thumbnail_delta ~= nil and self.state.thumbnail_size ~= nil and self.state.thumbnail_count > 0 then
         self.state.available = true
     end
 
@@ -101,7 +118,6 @@ function Thumbnailer:get_delta()
 
     local target_delta = (file_duration / thumbnailer_options.thumbnail_count)
     local delta = math.max(thumbnailer_options.min_delta, math.min(thumbnailer_options.max_delta, target_delta))
-    -- print("DELTA:", target_delta, delta)
 
     return delta
 end
@@ -114,33 +130,52 @@ function Thumbnailer:get_thumbnail_count()
     end
     local file_duration = mp.get_property_native("duration")
 
-    return math.floor(file_duration / delta) + 1
+    return math.floor(file_duration / delta)
 end
 
+function Thumbnailer:get_closest(thumbnail_index)
+    local min_distance = self.state.thumbnail_count+1
+    local closest = nil
+
+    for index, value in pairs(self.state.thumbnails) do
+        local distance = math.abs(index - thumbnail_index)
+        if distance < min_distance then
+            min_distance = distance
+            closest = index
+        end
+    end
+    return closest, min_distance
+end
 
 function Thumbnailer:get_thumbnail_path(time_position)
     local thumbnail_index = math.min(math.floor(time_position / self.state.thumbnail_delta), self.state.thumbnail_count-1)
 
-    if thumbnail_index < self.state.finished_thumbnails then
-        return self.state.thubmnail_template:format(thumbnail_index), thumbnail_index
+    local closest, distance = self:get_closest(thumbnail_index)
+
+    if closest ~= nil then
+        return self.state.thubmnail_template:format(closest), thumbnail_index, closest
     else
-        return nil, thumbnail_index
+        return nil, thumbnail_index, nil
     end
 end
 
 function Thumbnailer:register_client()
     mp.register_script_message("mpv_thumbnail_script-ready", function(index, path) self:on_thumb_ready(tonumber(index), path) end)
-    -- For when autogenerate is off
+    -- Wait for server to tell us we're live
     mp.register_script_message("mpv_thumbnail_script-enabled", function() self.state.enabled = true end)
 
-    -- Notify server to generate thumbnails
+    -- Notify server to generate thumbnails when video loads/changes
     mp.observe_property("video-dec-params", "native", function()
-        if thumbnailer_options.autogenerate then
-            mp.commandv("script-message", "mpv_thumbnail_script-generate")
+        local duration = mp.get_property_native("duration")
+        local max_duration = thumbnailer_options.autogenerate_max_duration
+
+        if duration and thumbnailer_options.autogenerate then
+            -- Notify if autogenerate is on and video is not too long
+            if duration < max_duration or max_duration == 0 then
+                mp.commandv("script-message", "mpv_thumbnail_script-generate")
+            end
         end
     end)
 end
 
--- mp.register_event("file-loaded", function() Thumbnailer:on_file_loaded() end)
 mp.observe_property("video-dec-params", "native", function(name, params) Thumbnailer:on_video_change(params) end)
-

@@ -22,6 +22,7 @@ function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path)
     local ffmpeg_command = {
         "ffmpeg",
         "-loglevel", "quiet",
+        "-noaccurate_seek",
         "-ss", format_time(timestamp, ":"),
         "-i", file_path,
 
@@ -35,8 +36,7 @@ function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path)
 
         "-y", output_path
     }
-    local ret = utils.subprocess({args=ffmpeg_command})
-    return ret
+    return utils.subprocess({args=ffmpeg_command})
 end
 
 
@@ -61,9 +61,11 @@ function check_output(ret, output_path)
 end
 
 
-function generate_thumbnails()
+function generate_thumbnails(from_keypress)
     if not Thumbnailer.state.available then
-        -- print("Thumbnailer state not ready")
+        if from_keypress then
+            mp.osd_message("Nothing to thumbnail", 2)
+        end
         return
     end
 
@@ -95,42 +97,94 @@ function generate_thumbnails()
 
     mp.commandv("script-message", "mpv_thumbnail_script-enabled")
 
-    for thumbnail_index = 0, thumbnail_count-1 do
+    local generate_thumbnail_for_index = function(thumbnail_index)
         local thumbnail_path = file_template:format(thumbnail_index)
         local timestamp = math.min(file_duration, thumbnail_index * thumbnail_delta)
 
-        if not path_exists(thumbnail_path) then
+        -- The expected size (raw BGRA image)
+        local thumbnail_raw_size = (thumbnail_size.w * thumbnail_size.h * 4)
 
+        local need_thumbnail_generation = false
+
+        -- Check if the thumbnail already exists and is the correct size
+        local thumbnail_file = io.open(thumbnail_path, "rb")
+        if thumbnail_file == nil then
+            need_thumbnail_generation = true
+        else
+            local existing_thumbnail_filesize = thumbnail_file:seek("end")
+            if existing_thumbnail_filesize ~= thumbnail_raw_size then
+                -- Size doesn't match, so (re)generate
+                msg.warn("Thumbnail", thumbnail_index, "did not match expected size, regenerating")
+                need_thumbnail_generation = true
+            end
+            thumbnail_file:close()
+        end
+
+        if need_thumbnail_generation then
             local ret = thumbnail_func(file_path, timestamp, thumbnail_size, thumbnail_path)
             local success = check_output(ret, thumbnail_path)
 
             if success == nil then
                 -- Killed by us, changing files, ignore
-                return
+                return true
             elseif not success then
                 -- Failure
                 mp.osd_message("Thumbnailing failed, check console for details", 3.5)
-                return
+                return true
             end
-
         end
 
-        mp.commandv("script-message", "mpv_thumbnail_script-ready", tostring(thumbnail_index+1), thumbnail_path)
+        -- Verify thumbnail size
+        -- Sometimes ffmpeg will output an empty file when seeking to a "bad" section (usually the end)
+        thumbnail_file = io.open(thumbnail_path, "rb")
+
+        -- Bail if we can't read the file (it should really exist by now, we checked this in check_output!)
+        if thumbnail_file == nil then
+            msg.error("Thumbnail suddenly disappeared!")
+            return true
+        end
+
+        -- Check the size of the generated file
+        local thumbnail_file_size = thumbnail_file:seek("end")
+        thumbnail_file:close()
+
+        -- Check if the file is big enough
+        local missing_bytes = math.max(0, thumbnail_raw_size - thumbnail_file_size)
+        if missing_bytes > 0 then
+            -- Pad the file if it's missing content (eg. ffmpeg seek to file end)
+            thumbnail_file = io.open(thumbnail_path, "ab")
+            thumbnail_file:write(string.rep(string.char(0) * missing_bytes))
+            thumbnail_file:close()
+        end
+
+        mp.commandv("script-message", "mpv_thumbnail_script-ready", tostring(thumbnail_index), thumbnail_path)
+    end
+
+    -- Keep track of which thumbnails we've checked during the passes (instead of proper math for no-overlap)
+    local generated_thumbnails = {}
+
+    -- Do several passes over the thumbnails with increasing frequency
+    for res = 6, 0, -1 do
+        local nth = (2^res)
+
+        for thumbnail_index = 0, thumbnail_count-1, nth do
+            if not generated_thumbnails[thumbnail_index] then
+                local bail = generate_thumbnail_for_index(thumbnail_index)
+                if bail then return end
+                generated_thumbnails[thumbnail_index] = true
+            end
+        end
     end
 end
 
--- function on_file_loaded()
---     if thumbnailer_options.autogenerate then
---         generate_thumbnails()
---     end
--- end
--- mp.observe_property("video-dec-params", "native", on_file_loaded)
 
 function on_script_keypress()
     mp.osd_message("Starting thumbnail generation", 2)
-    generate_thumbnails()
+    generate_thumbnails(true)
     mp.osd_message("All thumbnails generated", 2)
 end
+
+-- Set up listeners and keybinds
 
 mp.register_script_message("mpv_thumbnail_script-generate", generate_thumbnails)
 

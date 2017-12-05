@@ -11,93 +11,6 @@ local opt = require 'mp.options'
 local utils = require 'mp.utils'
 
 
--- mpv_thumbnail_script.lua --
-
-Thumbnailer:register_client()
-
-local osc_thumb_state = {
-    visible = false,
-    overlay_id = 1,
-
-    last_path = nil,
-    last_x = nil,
-    last_y = nil,
-}
-
-
-function hide_thumbnail()
-    osc_thumb_state.visible = false
-    osc_thumb_state.last_path = nil
-    mp.command_native({ "overlay-remove", osc_thumb_state.overlay_id })
-end
-
-function display_thumbnail(pos, value, ass)
-    -- If thumbnails are not available, bail
-    if not (Thumbnailer.state.enabled and Thumbnailer.state.available) then
-        return
-    end
-
-    local duration = mp.get_property_number("duration", nil)
-    if not ((duration == nil) or (value == nil)) then
-        target_position = duration * (value / 100)
-
-        local msx, msy = get_virt_scale_factor()
-        local thumb_size = Thumbnailer.state.thumbnail_size
-        local thumb_path, thumb_index = Thumbnailer:get_thumbnail_path(target_position)
-        
-        if thumb_path == nil then
-
-            local aw = thumb_size.w * msx
-            local ah = thumb_size.h * msy
-            local y_offset = get_thumbnail_y_offset(thumb_size, 1)
-
-            ass:new_event()
-            ass:pos(pos.x - aw/2, pos.y  - y_offset - ah)
-
-            ass:append(("{\\bord0\\1c&H000000&\\1a&H%X&"):format(80))
-            ass:draw_start()
-            ass:rect_cw(0, 0, aw, ah)
-            ass:draw_stop()
-
-            ass:new_event()
-            ass:pos(pos.x, pos.y  - y_offset - ah/2)
-            ass:append(("{\\bord0\\fscx%f\\fscy%f}"):format(100*msx, 100*msy))
-            ass:an(5)
-
-            local thumbs_ready = Thumbnailer.state.finished_thumbnails
-            local thumbs_total = Thumbnailer.state.thumbnail_count
-            local perc = math.floor((thumbs_ready / thumbs_total) * 100)
-            ass:append(("%d%%\\N%d / %d\\N(%d)"):format(perc, thumbs_ready, thumbs_total, thumb_index+1))
-
-        else
-            local y_offset = get_thumbnail_y_offset(thumb_size, msy)
-
-            local thumb_x = math.floor(pos.x / msx - thumb_size.w/2)
-            local thumb_y = math.floor(pos.y / msy - thumb_size.h - y_offset)
-
-            osc_thumb_state.visible = true
-            if not (osc_thumb_state.last_path == thumb_path and osc_thumb_state.last_x == thumb_x and osc_thumb_state.last_y == thumb_y) then
-                local overlay_add_args = {
-                    "overlay-add", osc_thumb_state.overlay_id,
-                    thumb_x, thumb_y,
-                    thumb_path,
-                    0,
-                    "bgra",
-                    thumb_size.w, thumb_size.h,
-                    4 * thumb_size.w
-                }
-                mp.command_native(overlay_add_args)
-
-                osc_thumb_state.last_path = thumb_path
-                osc_thumb_state.last_x = thumb_x
-                osc_thumb_state.last_y = thumb_y
-            end
-        end
-    end
-end
-
--- // mpv_thumbnail_script.lua // --
-
 --
 -- Parameters
 --
@@ -148,7 +61,11 @@ if user_opts.hidetimeout < 0 then
     msg.warn("hidetimeout cannot be negative. Using " .. user_opts.hidetimeout)
 end
 
+
 -- mpv_thumbnail_script.lua --
+
+Thumbnailer:register_client()
+
 function get_thumbnail_y_offset(thumb_size, msy)
     local layout = user_opts.layout
     local offset = 0
@@ -165,6 +82,130 @@ function get_thumbnail_y_offset(thumb_size, msy)
 
     return offset / msy
 end
+
+
+local osc_thumb_state = {
+    visible = false,
+    overlay_id = 1,
+
+    last_path = nil,
+    last_x = nil,
+    last_y = nil,
+}
+
+function hide_thumbnail()
+    osc_thumb_state.visible = false
+    osc_thumb_state.last_path = nil
+    mp.command_native({ "overlay-remove", osc_thumb_state.overlay_id })
+end
+
+function display_thumbnail(pos, value, ass)
+    -- If thumbnails are not available, bail
+    if not (Thumbnailer.state.enabled and Thumbnailer.state.available) then
+        return
+    end
+
+    local duration = mp.get_property_number("duration", nil)
+    if not ((duration == nil) or (value == nil)) then
+        target_position = duration * (value / 100)
+
+        local msx, msy = get_virt_scale_factor()
+        local thumb_size = Thumbnailer.state.thumbnail_size
+        local thumb_path, thumb_index, closest_index = Thumbnailer:get_thumbnail_path(target_position)
+
+        local thumbs_ready = Thumbnailer.state.finished_thumbnails
+        local thumbs_total = Thumbnailer.state.thumbnail_count
+        local perc = math.floor((thumbs_ready / thumbs_total) * 100)
+
+        if thumbs_ready ~= thumbs_total then
+            local ass_w = thumb_size.w * msx
+            local ass_h = thumb_size.h * msy
+            local y_offset = get_thumbnail_y_offset(thumb_size, 1)
+
+            local bg_h = ass_h + 30 * msy
+            local bg_left = pos.x - ass_w/2
+            local framegraph_h = 10 * msy
+
+            local bg_top = nil
+            local text_top = nil
+            local framegraph_top = nil
+
+            if user_opts.layout == "topbar" then
+                bg_top = pos.y - ( y_offset + thumb_size.h )
+                text_top = bg_top + ass_h + framegraph_h
+                framegraph_top = bg_top + ass_h
+            else
+                bg_top = pos.y - y_offset - bg_h
+                text_top = bg_top
+                framegraph_top = bg_top + 20 * msy
+            end
+
+            -- Draw background
+            ass:new_event()
+            ass:pos(bg_left, bg_top)
+            ass:append(("{\\bord0\\1c&H000000&\\1a&H%X&"):format(80))
+            ass:draw_start()
+            -- ass:round_rect_cw(0, 0, ass_w, bg_h, 5)
+            ass:rect_cw(0, 0, ass_w, bg_h)
+            ass:draw_stop()
+
+            ass:new_event()
+            ass:pos(pos.x, text_top)
+            ass:an(8)
+            -- Scale text to correct size
+            ass:append(("{\\bord0\\fscx%f\\fscy%f}"):format(100*msx, 100*msy))
+            ass:append(("%d%% - %d/%d"):format(perc, thumbs_ready, thumbs_total))
+
+            -- Draw the generation progress
+            local block_w = (thumb_size.w / thumbs_total) * msy
+            ass:new_event()
+            ass:pos(bg_left, framegraph_top)
+            ass:append(("{\\bord0\\1c&HFFFFFF&\\1a&H%X&"):format(0))
+            ass:draw_start(2)
+            for i in pairs(Thumbnailer.state.thumbnails) do
+                if i ~= closest_index then
+                    ass:rect_cw(i*block_w, 0, (i+1)*block_w, framegraph_h)
+                end
+            end
+            ass:draw_stop()
+
+            if closest_index ~= nil then
+                ass:new_event()
+                ass:pos(bg_left, framegraph_top)
+                ass:append(("{\\bord0\\1c&H4444FF&\\1a&H%X&"):format(0))
+                ass:draw_start(2)
+                ass:rect_cw(closest_index*block_w, 0, (closest_index+1)*block_w, framegraph_h)
+                ass:draw_stop()
+            end
+        end
+
+        if thumb_path then
+            local overlay_y_offset = get_thumbnail_y_offset(thumb_size, msy)
+
+            local thumb_x = math.floor(pos.x / msx - thumb_size.w/2)
+            local thumb_y = math.floor(pos.y / msy - thumb_size.h - overlay_y_offset)
+
+            osc_thumb_state.visible = true
+            if not (osc_thumb_state.last_path == thumb_path and osc_thumb_state.last_x == thumb_x and osc_thumb_state.last_y == thumb_y) then
+                local overlay_add_args = {
+                    "overlay-add", osc_thumb_state.overlay_id,
+                    thumb_x, thumb_y,
+                    thumb_path,
+                    0,
+                    "bgra",
+                    thumb_size.w, thumb_size.h,
+                    4 * thumb_size.w
+                }
+                mp.command_native(overlay_add_args)
+
+                osc_thumb_state.last_path = thumb_path
+                osc_thumb_state.last_x = thumb_x
+                osc_thumb_state.last_y = thumb_y
+            end
+        end
+    end
+end
+
 -- // mpv_thumbnail_script.lua // --
 
 
@@ -2404,13 +2445,20 @@ function enable_osc(enable)
     end
 end
 
--- Patched in --
+-- mpv_thumbnail_script.lua --
+
 local builtin_osc_enabled = mp.get_property_native('osc')
 if builtin_osc_enabled then
-    msg.error("You must disable the built-in OSC with osc=no in your configuration!")
-    return
+    local err = "You must disable the built-in OSC with osc=no in your configuration!"
+    mp.osd_message(err, 5)
+    msg.error(err)
+
+    -- This may break, but since we can, let's try to just disable the builtin OSC.
+    mp.set_property_native('osc', false)
 end
--- -- --
+
+-- // mpv_thumbnail_script.lua // --
+
 
 validate_user_opts()
 
