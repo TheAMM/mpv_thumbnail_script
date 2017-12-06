@@ -16,6 +16,9 @@ local thumbnailer_options = {
     -- Note: mpv is a bit slower, but includes eg. subtitles in the previews!
     prefer_mpv = false,
 
+    -- Explicitly disable subtitles on the mpv sub-calls
+    mpv_no_sub = false,
+
     -- Disable the built-in keybind ("T") to add your own
     disable_keybinds = false,
 

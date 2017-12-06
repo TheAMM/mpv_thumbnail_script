@@ -22,6 +22,8 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path)
         "--frames=1",
         "--hr-seek=yes",
         "--no-audio",
+        -- Optionally disable subtitles
+        (thumbnailer_options.mpv_no_sub and "--no-sub" or nil),
 
         ("--vf=scale=%d:%d"):format(size.w, size.h),
         "--vf-add=format=bgra",
