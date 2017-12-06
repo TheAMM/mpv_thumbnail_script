@@ -64,19 +64,21 @@ function check_output(ret, output_path)
         return nil
     end
 
+    local success = true
+
     if ret.error or ret.status ~= 0 then
         msg.error("Thumbnailing command failed!")
         msg.error(ret.error or ret.stdout)
 
-        return false
+        success = false
     end
 
     if not file_exists(output_path) then
-        msg.error("Output file missing!")
-        return false
+        msg.error("Output file missing!", output_path)
+        success = false
     end
 
-    return true
+    return success
 end
 
 
