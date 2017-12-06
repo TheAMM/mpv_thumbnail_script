@@ -2271,6 +2271,7 @@ function render()
     render_message(ass)
 
     -- mpv_thumbnail_script.lua --
+    local thumb_was_visible = osc_thumb_state.visible
     osc_thumb_state.visible = false
     -- // mpv_thumbnail_script.lua // --
 
@@ -2280,7 +2281,7 @@ function render()
     end
 
     -- mpv_thumbnail_script.lua --
-    if not osc_thumb_state.visible then
+    if not osc_thumb_state.visible and thumb_was_visible then
         hide_thumbnail()
     end
     -- // mpv_thumbnail_script.lua // --
