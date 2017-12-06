@@ -82,35 +82,17 @@ function check_output(ret, output_path)
 end
 
 
-function generate_thumbnails(from_keypress)
-    msg.debug("Thumbnailer state:")
-    msg.debug(utils.to_string(Thumbnailer.state))
-
-    if not Thumbnailer.state.available then
-        if from_keypress then
-            mp.osd_message("Nothing to thumbnail", 2)
-        end
-        if Thumbnailer.state.is_remote then
-            msg.warn("Not thumbnailing remote file")
-        end
+function do_worker_job(state_json_string, frames_json_string)
+    local thumb_state, err = utils.parse_json(state_json_string)
+    if err then
+        msg.error("Failed to parse state JSON")
         return
     end
 
-    local thumbnail_count = Thumbnailer.state.thumbnail_count
-    local thumbnail_delta = Thumbnailer.state.thumbnail_delta
-    local thumbnail_size = Thumbnailer.state.thumbnail_size
-    local file_template = Thumbnailer.state.thumbnail_template
-    local file_duration = mp.get_property_native("duration")
-    local file_path = mp.get_property_native("path")
-
-    msg.info(("Generating %d thumbnails @ %dx%d"):format(thumbnail_count, thumbnail_size.w, thumbnail_size.h))
-
-    -- Create directory for the thumbnails
-    local thumbnail_directory = split_path(file_template)
-    local l, err = utils.readdir(thumbnail_directory)
+    local thumbnail_indexes, err = utils.parse_json(frames_json_string)
     if err then
-        msg.info("Creating", thumbnail_directory)
-        create_directories(thumbnail_directory)
+        msg.error("Failed to parse thumbnail frame indexes")
+        return
     end
 
     local thumbnail_func = create_thumbnail_mpv
@@ -122,7 +104,10 @@ function generate_thumbnails(from_keypress)
         end
     end
 
-    if Thumbnailer.state.is_remote then
+    local file_duration = mp.get_property_native("duration")
+    local file_path = mp.get_property_native("path")
+
+    if thumb_state.is_remote then
         thumbnail_func = create_thumbnail_mpv
         if thumbnailer_options.remote_direct_stream then
             -- Use the direct stream (possibly) provided by ytdl
@@ -132,14 +117,16 @@ function generate_thumbnails(from_keypress)
         end
     end
 
-    mp.commandv("script-message", "mpv_thumbnail_script-enabled")
+    msg.debug(("Generating %d thumbnails @ %dx%d"):format(#thumbnail_indexes, thumb_state.thumbnail_size.w, thumb_state.thumbnail_size.h))
 
     local generate_thumbnail_for_index = function(thumbnail_index)
+        local thumbnail_path = thumb_state.thumbnail_template:format(thumbnail_index)
+        local timestamp = math.min(file_duration, thumbnail_index * thumb_state.thumbnail_delta)
 
         mp.commandv("script-message", "mpv_thumbnail_script-progress", tostring(thumbnail_index))
 
         -- The expected size (raw BGRA image)
-        local thumbnail_raw_size = (thumbnail_size.w * thumbnail_size.h * 4)
+        local thumbnail_raw_size = (thumb_state.thumbnail_size.w * thumb_state.thumbnail_size.h * 4)
 
         local need_thumbnail_generation = false
 
@@ -158,7 +145,7 @@ function generate_thumbnails(from_keypress)
         end
 
         if need_thumbnail_generation then
-            local ret = thumbnail_func(file_path, timestamp, thumbnail_size, thumbnail_path)
+            local ret = thumbnail_func(file_path, timestamp, thumb_state.thumbnail_size, thumbnail_path)
             local success = check_output(ret, thumbnail_path)
 
             if success == nil then
@@ -200,33 +187,35 @@ function generate_thumbnails(from_keypress)
         mp.commandv("script-message", "mpv_thumbnail_script-ready", tostring(thumbnail_index), thumbnail_path)
     end
 
-    -- Keep track of which thumbnails we've checked during the passes (instead of proper math for no-overlap)
-    local generated_thumbnails = {}
-
-    -- Do several passes over the thumbnails with increasing frequency
-    for res = 6, 0, -1 do
-        local nth = (2^res)
-
-        for thumbnail_index = 0, thumbnail_count-1, nth do
-            if not generated_thumbnails[thumbnail_index] then
-                local bail = generate_thumbnail_for_index(thumbnail_index)
-                if bail then return end
-                generated_thumbnails[thumbnail_index] = true
-            end
-        end
+    for i, thumbnail_index in ipairs(thumbnail_indexes) do
+        local bail = generate_thumbnail_for_index(thumbnail_index)
+        if bail then return end
     end
-end
-
-
-function on_script_keypress()
-    mp.osd_message("Starting thumbnail generation", 2)
-    generate_thumbnails(true)
-    mp.osd_message("All thumbnails generated", 2)
 end
 
 -- Set up listeners and keybinds
 
-mp.register_script_message("mpv_thumbnail_script-generate", generate_thumbnails)
+-- Job listener
+mp.register_script_message("mpv_thumbnail_script-job", do_worker_job)
 
-local thumb_script_key = not thumbnailer_options.disable_keybinds and "T" or nil
-mp.add_key_binding(thumb_script_key, "generate-thumbnails", on_script_keypress)
+
+-- Register this worker with the master script
+local register_timer = nil
+local register_timeout = mp.get_time() + 3
+
+local register_function = function()
+    if mp.get_time() > register_timeout and register_timer then
+        msg.error("Thumbnail worker registering timed out")
+        register_timer:stop()
+    else
+        msg.debug("Announcing self to master...")
+        mp.commandv("script-message", "mpv_thumbnail_script-worker", mp.get_script_name())
+    end
+end
+
+register_timer = mp.add_periodic_timer(0.1, register_function)
+
+mp.register_script_message("mpv_thumbnail_script-slaved", function()
+    msg.debug("Successfully registered with master")
+    register_timer:stop()
+end)

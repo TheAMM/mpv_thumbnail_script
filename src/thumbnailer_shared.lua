@@ -15,7 +15,8 @@ local Thumbnailer = {
 
         finished_thumbnails = 0,
         thumbnails = {}
-    }
+    },
+    workers = {}
 }
 
 function Thumbnailer:clear_state()
@@ -197,8 +198,6 @@ function Thumbnailer:get_thumbnail_path(time_position)
 end
 
 function Thumbnailer:register_client()
-    -- Wait for server to tell us we're live
-    mp.register_script_message("mpv_thumbnail_script-enabled", function() self.state.enabled = true end)
     mp.register_script_message("mpv_thumbnail_script-ready", function(index, path)
         self:on_thumb_ready(tonumber(index), path)
     end)
@@ -206,18 +205,98 @@ function Thumbnailer:register_client()
         self:on_thumb_progress(tonumber(index), path)
     end)
 
-    -- Notify server to generate thumbnails when video loads/changes
+    mp.register_script_message("mpv_thumbnail_script-worker", function(worker_name)
+        if not self.workers[worker_name] then
+            msg.debug("Registered worker", worker_name)
+            self.workers[worker_name] = true
+            mp.commandv("script-message-to", worker_name, "mpv_thumbnail_script-slaved")
+        end
+    end)
+
+    -- Notify workers to generate thumbnails when video loads/changes
+    -- This will be executed after the on_video_change (because it's registered after it)
     mp.observe_property("video-dec-params", "native", function()
         local duration = mp.get_property_native("duration")
         local max_duration = thumbnailer_options.autogenerate_max_duration
 
-        if duration and thumbnailer_options.autogenerate then
+        if self.state.available and thumbnailer_options.autogenerate then
             -- Notify if autogenerate is on and video is not too long
             if duration < max_duration or max_duration == 0 then
-                mp.commandv("script-message", "mpv_thumbnail_script-generate")
+                self:start_worker_jobs()
             end
         end
     end)
+
+    local thumb_script_key = not thumbnailer_options.disable_keybinds and "T" or nil
+    mp.add_key_binding(thumb_script_key, "generate-thumbnails", function()
+        if self.state.available then
+            self:start_worker_jobs()
+            mp.osd_message("Started thumbnailer jobs")
+        else
+            mp.osd_message("Thumbnailing unavailabe")
+        end
+    end)
+end
+
+function Thumbnailer:_create_thumbnail_job_order()
+    local used_frames = {}
+    local work_frames = {}
+
+    for x = 6, 0, -1 do
+        local nth = (2^x)
+
+        for thi = 0, self.state.thumbnail_count-1, nth do
+            if not used_frames[thi] then
+                table.insert(work_frames, thi)
+                used_frames[thi] = true
+            end
+        end
+    end
+    return work_frames
+end
+
+function Thumbnailer:start_worker_jobs()
+    self.state.enabled = true
+
+    -- Create directory for the thumbnails, if needed
+    local thumbnail_directory = split_path(self.state.thumbnail_template)
+    local l, err = utils.readdir(thumbnail_directory)
+    if err then
+        msg.info("Creating", thumbnail_directory)
+        create_directories(thumbnail_directory)
+    end
+
+    local worker_list = {}
+    for worker_name in pairs(self.workers) do table.insert(worker_list, worker_name) end
+
+    local worker_count = #worker_list
+
+    if worker_count == 0 then
+        local err = "No thumbnail workers found. Make sure you are not missing a script!"
+        msg.error(err)
+        mp.osd_message(err, 3)
+
+    else
+        local frame_job_order = self:_create_thumbnail_job_order()
+        local worker_jobs = {}
+        for i = 1, worker_count do worker_jobs[worker_list[i]] = {} end
+
+        -- Split frames amongs the workers
+        for i, thumbnail_index in ipairs(frame_job_order) do
+            local worker_id = worker_list[ ((i-1) % worker_count) + 1 ]
+            table.insert(worker_jobs[worker_id], thumbnail_index)
+        end
+
+        local state_json_string = utils.format_json(self.state)
+
+        for worker_name, worker_frames in pairs(worker_jobs) do
+            if #worker_frames > 0 then
+                local frames_json_string = utils.format_json(worker_frames)
+                msg.debug("Giving job to", worker_name, frames_json_string)
+                mp.commandv("script-message-to", worker_name, "mpv_thumbnail_script-job", state_json_string, frames_json_string)
+            end
+        end
+    end
 end
 
 mp.observe_property("video-dec-params", "native", function(name, params) Thumbnailer:on_video_change(params) end)

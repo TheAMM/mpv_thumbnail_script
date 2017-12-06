@@ -5,7 +5,6 @@
 		"<version>",
 		"lib/helpers.lua",
 		"src/options.lua",
-		"src/thumbnailer_shared.lua",
 		"src/thumbnailer_server.lua"
 	],
 
