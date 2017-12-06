@@ -3,6 +3,10 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path)
     local mpv_command = {
         "mpv",
         file_path,
+
+        -- Disable hardware decoding
+        "--hwdec=no",
+
         "--start=" .. tostring(timestamp),
         "--frames=1",
         "--hr-seek=yes",
