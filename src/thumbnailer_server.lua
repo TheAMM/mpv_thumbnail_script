@@ -93,7 +93,7 @@ function generate_thumbnails(from_keypress)
     local thumbnail_count = Thumbnailer.state.thumbnail_count
     local thumbnail_delta = Thumbnailer.state.thumbnail_delta
     local thumbnail_size = Thumbnailer.state.thumbnail_size
-    local file_template = Thumbnailer.state.thubmnail_template
+    local file_template = Thumbnailer.state.thumbnail_template
     local file_duration = mp.get_property_native("duration")
     local file_path = mp.get_property_native("path")
 
