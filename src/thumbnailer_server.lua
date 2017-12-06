@@ -133,8 +133,8 @@ function generate_thumbnails(from_keypress)
     mp.commandv("script-message", "mpv_thumbnail_script-enabled")
 
     local generate_thumbnail_for_index = function(thumbnail_index)
-        local thumbnail_path = file_template:format(thumbnail_index)
-        local timestamp = math.min(file_duration, thumbnail_index * thumbnail_delta)
+
+        mp.commandv("script-message", "mpv_thumbnail_script-progress", tostring(thumbnail_index))
 
         -- The expected size (raw BGRA image)
         local thumbnail_raw_size = (thumbnail_size.w * thumbnail_size.h * 4)

@@ -41,6 +41,10 @@ function Thumbnailer:on_thumb_ready(index)
     end
 end
 
+function Thumbnailer:on_thumb_progress(index)
+    self.state.thumbnails[index] = self.state.thumbnails[index] or false
+end
+
 function Thumbnailer:on_video_change(params)
     self:clear_state()
     if params ~= nil then
@@ -172,7 +176,7 @@ function Thumbnailer:get_closest(thumbnail_index)
 
     for index, value in pairs(self.state.thumbnails) do
         local distance = math.abs(index - thumbnail_index)
-        if distance < min_distance then
+        if distance < min_distance and value then
             min_distance = distance
             closest = index
         end
@@ -193,9 +197,14 @@ function Thumbnailer:get_thumbnail_path(time_position)
 end
 
 function Thumbnailer:register_client()
-    mp.register_script_message("mpv_thumbnail_script-ready", function(index, path) self:on_thumb_ready(tonumber(index), path) end)
     -- Wait for server to tell us we're live
     mp.register_script_message("mpv_thumbnail_script-enabled", function() self.state.enabled = true end)
+    mp.register_script_message("mpv_thumbnail_script-ready", function(index, path)
+        self:on_thumb_ready(tonumber(index), path)
+    end)
+    mp.register_script_message("mpv_thumbnail_script-progress", function(index, path)
+        self:on_thumb_progress(tonumber(index), path)
+    end)
 
     -- Notify server to generate thumbnails when video loads/changes
     mp.observe_property("video-dec-params", "native", function()

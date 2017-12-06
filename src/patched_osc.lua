@@ -158,12 +158,26 @@ function display_thumbnail(pos, value, ass)
 
             -- Draw the generation progress
             local block_w = (thumb_size.w / thumbs_total) * msy
+
+            -- Draw finished thumbnail blocks (white)
             ass:new_event()
             ass:pos(bg_left, framegraph_top)
             ass:append(("{\\bord0\\1c&HFFFFFF&\\1a&H%X&"):format(0))
             ass:draw_start(2)
-            for i in pairs(Thumbnailer.state.thumbnails) do
-                if i ~= closest_index then
+            for i, v in pairs(Thumbnailer.state.thumbnails) do
+                if i ~= closest_index and v then
+                    ass:rect_cw(i*block_w, 0, (i+1)*block_w, framegraph_h)
+                end
+            end
+            ass:draw_stop()
+
+            -- Draw in-progress thumbnail blocks (grayish green)
+            ass:new_event()
+            ass:pos(bg_left, framegraph_top)
+            ass:append(("{\\bord0\\1c&H44AA44&\\1a&H%X&"):format(0))
+            ass:draw_start(2)
+            for i, v in pairs(Thumbnailer.state.thumbnails) do
+                if i ~= closest_index and v == false then
                     ass:rect_cw(i*block_w, 0, (i+1)*block_w, framegraph_h)
                 end
             end
