@@ -153,7 +153,7 @@ function display_thumbnail(pos, value, ass)
             ass:pos(pos.x, text_top)
             ass:an(8)
             -- Scale text to correct size
-            ass:append(("{\\bord0\\fscx%f\\fscy%f}"):format(100*msx, 100*msy))
+            ass:append(("{\\fs20\\bord0\\fscx%f\\fscy%f}"):format(100*msx, 100*msy))
             ass:append(("%d%% - %d/%d"):format(perc, thumbs_ready, thumbs_total))
 
             -- Draw the generation progress
