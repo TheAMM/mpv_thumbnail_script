@@ -155,9 +155,12 @@ function generate_thumbnails(from_keypress)
         -- Check if the file is big enough
         local missing_bytes = math.max(0, thumbnail_raw_size - thumbnail_file_size)
         if missing_bytes > 0 then
+            msg.warn(("Thumbnail missing %d bytes (expected %d, had %d), padding %s"):format(
+              missing_bytes, thumbnail_raw_size, thumbnail_file_size, thumbnail_path
+            ))
             -- Pad the file if it's missing content (eg. ffmpeg seek to file end)
             thumbnail_file = io.open(thumbnail_path, "ab")
-            thumbnail_file:write(string.rep(string.char(0) * missing_bytes))
+            thumbnail_file:write(string.rep(string.char(0), missing_bytes))
             thumbnail_file:close()
         end
 
