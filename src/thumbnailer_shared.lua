@@ -6,7 +6,7 @@ local Thumbnailer = {
         available = false,
         enabled = false,
 
-        thubmnail_template = nil,
+        thumbnail_template = nil,
 
         thumbnail_delta = nil,
         thumbnail_count = 0,
@@ -55,7 +55,7 @@ function Thumbnailer:update_state()
     self.state.thumbnail_delta = self:get_delta()
     self.state.thumbnail_count = self:get_thumbnail_count()
 
-    self.state.thubmnail_template = self:get_thubmnail_template()
+    self.state.thumbnail_template = self:get_thumbnail_template()
     self.state.thumbnail_size = self:get_thumbnail_size()
 
     self.state.ready = true
@@ -82,7 +82,7 @@ function Thumbnailer:update_state()
 end
 
 
-function Thumbnailer:get_thubmnail_template()
+function Thumbnailer:get_thumbnail_template()
     local file_path = mp.get_property_native("path")
     local is_remote = file_path:find("://") ~= nil
 
@@ -186,7 +186,7 @@ function Thumbnailer:get_thumbnail_path(time_position)
     local closest, distance = self:get_closest(thumbnail_index)
 
     if closest ~= nil then
-        return self.state.thubmnail_template:format(closest), thumbnail_index, closest
+        return self.state.thumbnail_template:format(closest), thumbnail_index, closest
     else
         return nil, thumbnail_index, nil
     end
