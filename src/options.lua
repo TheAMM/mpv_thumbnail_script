@@ -13,8 +13,9 @@ local thumbnailer_options = {
     autogenerate_max_duration = 3600, -- 1 hour
 
     -- Use mpv to generate thumbnail even if ffmpeg is found in PATH
-    -- Note: mpv is a bit slower, but includes eg. subtitles in the previews!
-    prefer_mpv = false,
+    -- ffmpeg does not handle ordered chapters (MKVs which rely on other MKVs)!
+    -- mpv is a bit slower, but has better support overall (eg. subtitles in the previews)
+    prefer_mpv = true,
 
     -- Explicitly disable subtitles on the mpv sub-calls
     mpv_no_sub = false,
