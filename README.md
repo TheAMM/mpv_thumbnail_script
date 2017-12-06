@@ -58,6 +58,7 @@ In this file you may set the following options:
 # The directory will be created automatically, but must be writeable!
 # Use absolute paths, and take note that environment variables like %TEMP% are unsupported (despite the default)!
 cache_directory=/tmp/my_mpv_thumbnails
+# THIS IS NOT A WINDOWS PATH. COMMENT IT OUT OR ADJUST IT YOURSELF.
 
 # Whether to generate thumbnails automatically on video load, without a keypress
 # Defaults to yes
