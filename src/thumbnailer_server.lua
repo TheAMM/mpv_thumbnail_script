@@ -11,6 +11,8 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path)
 
     local mpv_command = skip_nil({
         "mpv",
+        -- Hide console output
+        "--msg-level=all=no",
         file_path,
 
         -- Disable ytdl
