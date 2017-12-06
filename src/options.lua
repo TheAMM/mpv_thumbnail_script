@@ -38,6 +38,21 @@ local thumbnailer_options = {
     min_delta = 5,
     -- 120 seconds aka 2 minutes will add more thumbnails when the video is over 5 hours!
     max_delta = 90,
+
+
+    -- Overrides for remote urls (you generally want less thumbnails!)
+    -- Thumbnailing network paths will be done with mpv
+
+    -- Allow thumbnailing network paths (naive check for "://")
+    thumbnail_network = false,
+    -- Override thumbnail count, min/max delta
+    remote_thumbnail_count = 60,
+    remote_min_delta = 15,
+    remote_max_delta = 120,
+
+    -- Try to grab the raw stream and disable ytdl for the mpv subcalls
+    -- Much faster than passing the url to ytdl again, but may cause problems with some sites
+    remote_direct_stream = true,
 }
 
 read_options(thumbnailer_options, SCRIPT_NAME)

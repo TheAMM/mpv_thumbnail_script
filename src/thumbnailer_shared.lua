@@ -60,6 +60,9 @@ function Thumbnailer:update_state()
 
     self.state.ready = true
 
+    local file_path = mp.get_property_native("path")
+    self.state.is_remote = file_path:find("://") ~= nil
+
     self.state.available = false
 
     -- Make sure the file has video (and not just albumart)
@@ -80,7 +83,19 @@ end
 
 
 function Thumbnailer:get_thubmnail_template()
-    local file_key = ("%s-%d"):format(mp.get_property_native("filename/no-ext"), mp.get_property_native("file-size"))
+    local file_path = mp.get_property_native("path")
+    local is_remote = file_path:find("://") ~= nil
+
+    local filename = mp.get_property_native("filename/no-ext")
+    local filesize = mp.get_property_native("file-size", 0)
+
+    if is_remote then
+        filesize = 0
+    end
+
+    filename = filename:gsub('[^a-zA-Z0-9_.%-\' ]', '')
+
+    local file_key = ("%s-%d"):format(filename, filesize)
     local file_template = join_paths(self.cache_directory, file_key, "%06d.bgra")
     return file_template
 end
@@ -111,13 +126,31 @@ function Thumbnailer:get_delta()
     local file_duration = mp.get_property_native("duration")
     local is_seekable = mp.get_property_native("seekable")
 
-    if file_path:find("://") ~= nil or not is_seekable or not file_duration then
-        -- Not a local path, not seekable or lacks duration
+    -- Naive url check
+    local is_remote = file_path:find("://") ~= nil
+
+    local remote_and_disallowed = is_remote
+    if is_remote and thumbnailer_options.thumbnail_network then
+        remote_and_disallowed = false
+    end
+
+    if remote_and_disallowed or not is_seekable or not file_duration then
+        -- Not a local path (or remote thumbnails allowed), not seekable or lacks duration
         return nil
     end
 
-    local target_delta = (file_duration / thumbnailer_options.thumbnail_count)
-    local delta = math.max(thumbnailer_options.min_delta, math.min(thumbnailer_options.max_delta, target_delta))
+    local thumbnail_count = thumbnailer_options.thumbnail_count
+    local min_delta = thumbnailer_options.min_delta
+    local max_delta = thumbnailer_options.max_delta
+
+    if is_remote then
+        thumbnail_count = thumbnailer_options.remote_thumbnail_count
+        min_delta = thumbnailer_options.remote_min_delta
+        max_delta = thumbnailer_options.remote_max_delta
+    end
+
+    local target_delta = (file_duration / thumbnail_count)
+    local delta = math.max(min_delta, math.min(max_delta, target_delta))
 
     return delta
 end

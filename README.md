@@ -98,6 +98,22 @@ thumbnail_count=150
 min_delta=5
 max_delta=90
 # 120 seconds aka 2 minutes will add more thumbnails only when the video is over 5 hours long!
+
+# Below are overrides for remote urls (you generally want less thumbnails, because it's slow!)
+# Thumbnailing network paths will be done with mpv (leveraging youtube-dl)
+
+# Allow thumbnailing network paths (naive check for "://")
+# Defaults to no
+thumbnail_network=[yes/no]
+# Override thumbnail count, min/max delta, as above
+remote_thumbnail_count=60
+remote_min_delta=15
+remote_max_delta=120
+
+# Try to grab the raw stream and disable ytdl for the mpv subcalls
+# Much faster than passing the url to ytdl again, but may cause problems with some sites
+Defaults to yes
+remote_direct_stream=[yes/no]
 ```
 
 With `disable_keybind=yes`, you can add your own keybind to [`input.conf`](https://mpv.io/manual/master/#input-conf) with `script-binding generate-thumbnails`, for example:

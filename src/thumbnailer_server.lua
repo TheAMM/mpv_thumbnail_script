@@ -1,9 +1,20 @@
+function skip_nil(tbl)
+    local n = {}
+    for k, v in pairs(tbl) do
+        table.insert(n, v)
+    end
+    return n
+end
 
 function create_thumbnail_mpv(file_path, timestamp, size, output_path)
-    local mpv_command = {
+    local ytdl_disabled = mp.get_property_native("ytdl") == false or thumbnailer_options.remote_direct_stream
+
+    local mpv_command = skip_nil({
         "mpv",
         file_path,
 
+        -- Disable ytdl
+        (ytdl_disabled and "--no-ytdl" or nil),
         -- Disable hardware decoding
         "--hwdec=no",
 
@@ -17,7 +28,7 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path)
         "--of=rawvideo",
         "--ovc=rawvideo",
         "--o", output_path
-    }
+    })
     return utils.subprocess({args=mpv_command})
 end
 
@@ -66,9 +77,15 @@ end
 
 
 function generate_thumbnails(from_keypress)
+    msg.debug("Thumbnailer state:")
+    msg.debug(utils.to_string(Thumbnailer.state))
+
     if not Thumbnailer.state.available then
         if from_keypress then
             mp.osd_message("Nothing to thumbnail", 2)
+        end
+        if Thumbnailer.state.is_remote then
+            msg.warn("Not thumbnailing remote file")
         end
         return
     end
@@ -96,6 +113,16 @@ function generate_thumbnails(from_keypress)
             thumbnail_func = create_thumbnail_ffmpeg
         else
             msg.warning("Could not find ffmpeg in PATH! Falling back on mpv.")
+        end
+    end
+
+    if Thumbnailer.state.is_remote then
+        thumbnail_func = create_thumbnail_mpv
+        if thumbnailer_options.remote_direct_stream then
+            -- Use the direct stream (possibly) provided by ytdl
+            -- This skips ytdl on the sub-calls, making the thumbnailing faster
+            -- Works well on YouTube, rest not really tested
+            file_path = mp.get_property_native("stream-path")
         end
     end
 
