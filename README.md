@@ -17,16 +17,21 @@ This allows you to preview the end of the file before every thumbnail has been g
 
 ## How do I install it?
 
-Grab both the two `.lua`s from the [**releases page**](https://github.com/TheAMM/mpv_thumbnail_script/releases) (or [see below](#development) how to "build" (concatenate) it yourself) and place them both to your mpv's `scripts` directory. (**Note!** Also see Configuration below)  
+Grab both the two `.lua`s from the [**releases page**](https://github.com/TheAMM/mpv_thumbnail_script/releases) and place them both to your mpv's `scripts` directory.
 
 For example:
   * Linux/Unix/Mac: `~/.config/mpv/scripts/mpv_thumbnail_script_server.lua` & `~/.config/mpv/scripts/mpv_thumbnail_script_client_osc.lua`
   * Windows: `%APPDATA%\Roaming\mpv\scripts\mpv_thumbnail_script_server.lua` & `%APPDATA%\Roaming\mpv\scripts\mpv_thumbnail_script_client_osc.lua`
 
-See the [Files section](https://mpv.io/manual/master/#files) in mpv's manual for more info.
+(See the [Files section](https://mpv.io/manual/master/#files) in mpv's manual for more info.)
 
-The script can also use FFmpeg for faster thumbnail generation, which is highly recommended.  
-Just make sure `ffmpeg[.exe]` is in your `PATH`.
+You should also read the [Configuration](#configuration) section.
+
+While the script doesn't need external dependencies and can work with mpv alone, it can also use FFmpeg for *slightly* faster thumbnail generation; just make sure `ffmpeg[.exe]` is in your `PATH` and `prefer_mpv` is set to `no` in your configuration.
+
+***However,*** FFmpeg does not support "ordered chapters" in MKVs (segment linking, ie. an `.mkv` references another `.mkv`), which can break the thumbnailing process. You have been warned.
+
+In general, you should just use multiple worker scripts ([Configuration](#configuration)) instead of taking the FFmpeg-risk.
 
 **Note:** You will need a rather new version of mpv due to [the new binds](https://github.com/mpv-player/mpv/commit/957e9a37db6611fe0879bd2097131df5e09afd47#diff-5d10e79e2d65d30d34f98349f4ed08e4) used in the patched `osc.lua`.
 
@@ -42,13 +47,22 @@ You may change this duration check in the configuration (`autogenerate_max_durat
 
 **Note!** Because this script replaces the built-in OSC, you will have to set `osc=no` in your mpv's [main config file](https://mpv.io/manual/master/#files).
 
-Create a file called `mpv_thumbnail_script.conf` inside your mpv's `lua-settings` directory to adjust the script's options.
+
+**Multithreading:**  
+This script can use multiple concurrent thumbnailing jobs.  
+Simply copy the `mpv_thumbnail_script_server.lua` once or twice (`mpv_thumbnail_script_server-1.lua`, `mpv_thumbnail_script_server-2.lua`) and the workers will automatically register themselves with the core.  
+This improves thumbnailing speed a bunch, but you will quickly max out your CPU - I recommend only having two or three copies of the script.  
+(Why multiple copies of the same file? mpv gives each script their own thread - easy multithreading!)
+
+To adjust the script's options, create a file called `mpv_thumbnail_script.conf` inside your mpv's `lua-settings` directory.
 
 For example:
   * Linux/Unix/Mac: `~/.config/mpv/lua-settings/mpv_thumbnail_script.conf`
   * Windows: `%APPDATA%\Roaming\mpv\lua-settings\mpv_thumbnail_script.conf`
 
-See the [Files section](https://mpv.io/manual/master/#files) in mpv's manual for more info.
+(See the [Files section](https://mpv.io/manual/master/#files) in mpv's manual for more info.)
+
+
 
 In this file you may set the following options:
 ```ini
@@ -71,9 +85,16 @@ autogenerate=[yes/no]
 autogenerate_max_duration=3600
 
 # Use mpv to generate thumbnail even if ffmpeg is found in PATH
-# It's better to use ffmpeg, but the choice is yours
-# Defaults to no
+# ffmpeg is slightly faster than mpv but lacks support for ordered chapters in MKVs,
+# which can break the resulting thumbnails. You have been warned.
+# Defaults to yes (don't use ffmpeg)
 prefer_mpv=[yes/no]
+
+# Explicitly disable subtitles on the mpv sub-calls
+# mpv can and will by default render subtitles into the thumbnails.
+# If this is not what you wish, set mpv_no_sub to yes
+# Defaults to no
+mpv_no_sub=[yes/no]
 
 # Enable to disable the built-in keybind ("T") to add your own, see after the block
 disable_keybinds=[yes/no]
@@ -113,7 +134,7 @@ remote_max_delta=120
 
 # Try to grab the raw stream and disable ytdl for the mpv subcalls
 # Much faster than passing the url to ytdl again, but may cause problems with some sites
-Defaults to yes
+# Defaults to yes
 remote_direct_stream=[yes/no]
 ```
 
