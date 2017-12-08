@@ -29,7 +29,7 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path)
         -- Insert --no-config, --profile=... and --log-file if enabled
         (thumbnailer_options.mpv_no_config and "--no-config" or nil),
         profile_arg,
-        (thumbnailer_options.mpv_log and log_arg or nil),
+        (thumbnailer_options.mpv_logs and log_arg or nil),
 
         file_path,
 
@@ -72,23 +72,35 @@ function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path)
 end
 
 
-function check_output(ret, output_path)
-    if ret.killed_by_us then
-        return nil
-    end
-
+function check_output(ret, output_path, is_mpv)
+    local log_path = output_path .. ".log"
     local success = true
 
-    if ret.error or ret.status ~= 0 then
-        msg.error("Thumbnailing command failed!")
-        msg.error(ret.error or ret.stdout)
+    if ret.killed_by_us then
+        return nil
+    else
+        if ret.error or ret.status ~= 0 then
+            msg.error("Thumbnailing command failed!")
+            msg.error(ret.error)
+            msg.error(ret.stdout)
+            if is_mpv then
+                msg.error("Debug log:", log_path)
+            end
 
-        success = false
+            success = false
+        end
+
+        if not file_exists(output_path) then
+            msg.error("Output file missing!", output_path)
+            success = false
+        end
     end
 
-    if not file_exists(output_path) then
-        msg.error("Output file missing!", output_path)
-        success = false
+    if is_mpv and not thumbnailer_options.mpv_keep_logs then
+        -- Remove successful debug logs
+        if success and file_exists(log_path) then
+            os.remove(log_path)
+        end
     end
 
     return success
@@ -159,7 +171,7 @@ function do_worker_job(state_json_string, frames_json_string)
 
         if need_thumbnail_generation then
             local ret = thumbnail_func(file_path, timestamp, thumb_state.thumbnail_size, thumbnail_path)
-            local success = check_output(ret, thumbnail_path)
+            local success = check_output(ret, thumbnail_path, thumbnail_func == create_thumbnail_mpv)
 
             if success == nil then
                 -- Killed by us, changing files, ignore

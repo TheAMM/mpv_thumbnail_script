@@ -25,7 +25,10 @@ local thumbnailer_options = {
     -- Use "" to disable
     mpv_profile = "",
     -- Output debug logs to <thumbnail_path>.log, ala <cache_directory>/<video_filename>/000000.bgra.log
-    mpv_log = false,
+    -- The logs are removed after successful encodes, unless you set mpv_keep_logs below
+    mpv_logs = true,
+    -- Keep all mpv logs, even the succesfull ones
+    mpv_keep_logs = false,
 
     -- Disable the built-in keybind ("T") to add your own
     disable_keybinds = false,
