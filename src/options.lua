@@ -19,6 +19,13 @@ local thumbnailer_options = {
 
     -- Explicitly disable subtitles on the mpv sub-calls
     mpv_no_sub = false,
+    -- Add a "--no-config" to the mpv sub-call arguments
+    mpv_no_config = false,
+    -- Add a "--profile=<mpv_profile>" to the mpv sub-call arguments
+    -- Use "" to disable
+    mpv_profile = "",
+    -- Output debug logs to <thumbnail_path>.log, ala <cache_directory>/<video_filename>/000000.bgra.log
+    mpv_log = false,
 
     -- Disable the built-in keybind ("T") to add your own
     disable_keybinds = false,

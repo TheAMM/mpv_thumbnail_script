@@ -9,16 +9,29 @@ end
 function create_thumbnail_mpv(file_path, timestamp, size, output_path)
     local ytdl_disabled = mp.get_property_native("ytdl") == false or thumbnailer_options.remote_direct_stream
 
+    local profile_arg = nil
+    if thumbnailer_options.mpv_profile ~= "" then
+        profile_arg = "--profile=" .. thumbnailer_options.mpv_profile
+    end
+
+    local log_arg = "--log-file=" .. output_path .. ".log"
+
     local mpv_command = skip_nil({
         "mpv",
         -- Hide console output
         "--msg-level=all=no",
-        file_path,
 
         -- Disable ytdl
         (ytdl_disabled and "--no-ytdl" or nil),
         -- Disable hardware decoding
         "--hwdec=no",
+
+        -- Insert --no-config, --profile=... and --log-file if enabled
+        (thumbnailer_options.mpv_no_config and "--no-config" or nil),
+        profile_arg,
+        (thumbnailer_options.mpv_log and log_arg or nil),
+
+        file_path,
 
         "--start=" .. tostring(timestamp),
         "--frames=1",
