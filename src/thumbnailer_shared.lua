@@ -99,6 +99,10 @@ function Thumbnailer:get_thumbnail_template()
     end
 
     filename = filename:gsub('[^a-zA-Z0-9_.%-\' ]', '')
+    -- Hash overly long filenames (most likely URLs)
+    if #filename > thumbnailer_options.hash_filename_length then
+        filename = sha256.hash256(filename)
+    end
 
     local file_key = ("%s-%d"):format(filename, filesize)
     local file_template = join_paths(self.cache_directory, file_key, "%06d.bgra")
