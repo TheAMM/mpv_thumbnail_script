@@ -4,7 +4,7 @@
 		"src/license_blurb.lua",
 		"<version>",
 		"lib/helpers.lua",
-		"lib/sha256.lua",
+		"lib/sha1.lua",
 		"src/options.lua",
 		"src/thumbnailer_shared.lua",
 		"src/patched_osc.lua"

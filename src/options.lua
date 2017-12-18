@@ -12,7 +12,7 @@ local thumbnailer_options = {
     -- Only automatically thumbnail videos shorter than this (seconds)
     autogenerate_max_duration = 3600, -- 1 hour
 
-    -- MD5-sum filenames over this length
+    -- SHA1-sum filenames over this length
     -- It's nice to know what files the thumbnails are (hence directory names)
     -- but long URLs may approach filesystem limits.
     hash_filename_length = 128,

@@ -101,7 +101,7 @@ function Thumbnailer:get_thumbnail_template()
     filename = filename:gsub('[^a-zA-Z0-9_.%-\' ]', '')
     -- Hash overly long filenames (most likely URLs)
     if #filename > thumbnailer_options.hash_filename_length then
-        filename = sha256.hash256(filename)
+        filename = sha1.hex(filename)
     end
 
     local file_key = ("%s-%d"):format(filename, filesize)
