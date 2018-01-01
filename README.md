@@ -21,7 +21,7 @@ Grab both the two `.lua`s from the [**releases page**](https://github.com/TheAMM
 
 For example:
   * Linux/Unix/Mac: `~/.config/mpv/scripts/mpv_thumbnail_script_server.lua` & `~/.config/mpv/scripts/mpv_thumbnail_script_client_osc.lua`
-  * Windows: `%APPDATA%\Roaming\mpv\scripts\mpv_thumbnail_script_server.lua` & `%APPDATA%\Roaming\mpv\scripts\mpv_thumbnail_script_client_osc.lua`
+  * Windows: `%APPDATA%\mpv\scripts\mpv_thumbnail_script_server.lua` & `%APPDATA%\mpv\scripts\mpv_thumbnail_script_client_osc.lua`
 
 (See the [Files section](https://mpv.io/manual/master/#files) in mpv's manual for more info.)
 
