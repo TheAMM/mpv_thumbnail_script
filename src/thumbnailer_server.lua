@@ -133,45 +133,10 @@ function do_worker_job(state_json_string, frames_json_string)
     end
 
     local file_duration = mp.get_property_native("duration")
-    local file_path = mp.get_property_native("path")
-    local extra_worker_options = {}
+    local file_path = thumb_state.worker_input_path
 
     if thumb_state.is_remote then
         thumbnail_func = create_thumbnail_mpv
-        if thumbnailer_options.remote_direct_stream then
-            -- Use the direct stream (possibly) provided by ytdl
-            -- This skips ytdl on the sub-calls, making the thumbnailing faster
-            -- Works well on YouTube, rest not really tested
-            file_path = mp.get_property_native("stream-path")
-        end
-    end
-
-    -- edl:// urls can get LONG. In which case, save the path (URL)
-    -- to a temporary file and use that instead.
-    local thumbnail_directory = split_path(thumb_state.thumbnail_template)
-    local playlist_filename = join_paths(thumbnail_directory, "playlist" .. mp.get_script_name() .. ".txt")
-    local edl_playlist_used = false
-
-    if #file_path > 8000 then
-        -- Path is too long for a playlist - just pass the original URL to
-        -- workers and allow ytdl
-        extra_worker_options.enable_ytdl = true
-        file_path = mp.get_property_native("path")
-        msg.warn("Falling back to original URL and ytdl due to LONG source path. This will be slow.")
-
-    elseif #file_path > 1024 then
-        local playlist_file = io.open(playlist_filename, "wb")
-        if not playlist_file then
-            msg.error(("Tried to write a playlist to %s but couldn't!"):format(playlist_file))
-            return
-        end
-
-        playlist_file:write(file_path .. "\n")
-        playlist_file:close()
-
-        file_path = "--playlist=" .. playlist_filename
-        edl_playlist_used = true
-        msg.warn("Using playlist workaround due to long source path")
     end
 
     local generate_thumbnail_for_index = function(thumbnail_index)
@@ -203,7 +168,7 @@ function do_worker_job(state_json_string, frames_json_string)
         end
 
         if need_thumbnail_generation then
-            local ret = thumbnail_func(file_path, timestamp, thumb_state.thumbnail_size, thumbnail_path, extra_worker_options)
+            local ret = thumbnail_func(file_path, timestamp, thumb_state.thumbnail_size, thumbnail_path, thumb_state.worker_extra)
             local success = check_output(ret, thumbnail_path, thumbnail_func == create_thumbnail_mpv)
 
             if success == nil then
@@ -255,11 +220,6 @@ function do_worker_job(state_json_string, frames_json_string)
         thumb_state.thumbnail_size.w,
         thumb_state.thumbnail_size.h,
         file_path))
-
-    -- Remove playlist file if it was used as a workaround
-    if edl_playlist_used then
-        os.remove(playlist_filename)
-    end
 end
 
 -- Set up listeners and keybinds

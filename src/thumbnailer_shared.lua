@@ -19,7 +19,11 @@ local Thumbnailer = {
         -- ready: 1
         -- in progress: 0
         -- not ready: -1
-        thumbnails = {}
+        thumbnails = {},
+
+        worker_input_path = nil,
+        -- Extra options for the workers
+        worker_extra = {},
     },
     workers = {}
 }
@@ -30,6 +34,7 @@ function Thumbnailer:clear_state()
     self.state.available = false
     self.state.finished_thumbnails = 0
     self.state.thumbnails = {}
+    self.state.worker_extra = {}
 end
 
 
@@ -72,7 +77,7 @@ function Thumbnailer:update_state()
         self.state.thumbnails[i] = -1
     end
 
-    self.state.thumbnail_template = self:get_thumbnail_template()
+    self.state.thumbnail_template, self.state.thumbnail_directory = self:get_thumbnail_template()
     self.state.thumbnail_size = self:get_thumbnail_size()
 
     self.state.ready = true
@@ -117,8 +122,10 @@ function Thumbnailer:get_thumbnail_template()
     end
 
     local file_key = ("%s-%d"):format(filename, filesize)
-    local file_template = join_paths(self.cache_directory, file_key, "%06d.bgra")
-    return file_template
+
+    local thumbnail_directory = join_paths(self.cache_directory, file_key)
+    local file_template = join_paths(thumbnail_directory, "%06d.bgra")
+    return file_template, thumbnail_directory
 end
 
 
@@ -297,15 +304,58 @@ function Thumbnailer:_create_thumbnail_job_order()
     return work_frames
 end
 
+function Thumbnailer:prepare_source_path()
+    local file_path = mp.get_property_native("path")
+
+    if self.state.is_remote and thumbnailer_options.remote_direct_stream then
+        -- Use the direct stream (possibly) provided by ytdl
+        -- This skips ytdl on the sub-calls, making the thumbnailing faster
+        -- Works well on YouTube, rest not really tested
+        file_path = mp.get_property_native("stream-path")
+
+        -- edl:// urls can get LONG. In which case, save the path (URL)
+        -- to a temporary file and use that instead.
+        local playlist_filename = join_paths(self.state.thumbnail_directory, "playlist.txt")
+
+        if #file_path > 8000 then
+            -- Path is too long for a playlist - just pass the original URL to
+            -- workers and allow ytdl
+            self.state.worker_extra.enable_ytdl = true
+            file_path = mp.get_property_native("path")
+            msg.warn("Falling back to original URL and ytdl due to LONG source path. This will be slow.")
+
+        elseif #file_path > 1024 then
+            local playlist_file = io.open(playlist_filename, "wb")
+            if not playlist_file then
+                msg.error(("Tried to write a playlist to %s but couldn't!"):format(playlist_file))
+                return false
+            end
+
+            playlist_file:write(file_path .. "\n")
+            playlist_file:close()
+
+            file_path = "--playlist=" .. playlist_filename
+            msg.warn("Using playlist workaround due to long source path")
+        end
+    end
+
+    self.state.worker_input_path = file_path
+    return true
+end
+
 function Thumbnailer:start_worker_jobs()
     self.state.enabled = true
 
     -- Create directory for the thumbnails, if needed
-    local thumbnail_directory = split_path(self.state.thumbnail_template)
-    local l, err = utils.readdir(thumbnail_directory)
+    local l, err = utils.readdir(self.state.thumbnail_directory)
     if err then
-        msg.info("Creating", thumbnail_directory)
-        create_directories(thumbnail_directory)
+        msg.debug("Creating thumbnail directory", self.state.thumbnail_directory)
+        create_directories(self.state.thumbnail_directory)
+    end
+
+    -- Try to prepare the source path for workers, and bail if unable to do so
+    if not self:prepare_source_path() then
+        return
     end
 
     local worker_list = {}
