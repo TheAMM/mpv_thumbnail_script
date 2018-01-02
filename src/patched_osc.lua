@@ -836,7 +836,7 @@ function render_elements(master_ass)
                     elem_ass:append(tooltiplabel)
 
                     -- mpv_thumbnail_script.lua --
-                    display_thumbnail({x=tx, y=ty, a=an}, sliderpos, elem_ass)
+                    display_thumbnail({x=get_virt_mouse_pos(), y=ty, a=an}, sliderpos, elem_ass)
                     -- // mpv_thumbnail_script.lua // --
 
                 end
