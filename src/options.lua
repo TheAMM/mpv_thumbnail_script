@@ -38,6 +38,32 @@ local thumbnailer_options = {
     -- Disable the built-in keybind ("T") to add your own
     disable_keybinds = false,
 
+    -- Move the thumbnail up or down
+    -- For example:
+    --   topbar/bottombar: 24
+    --   rest: 0
+    vertical_offset = 24,
+
+    -- Adjust background padding
+    -- Examples:
+    --   topbar:       0, 10, 10, 10
+    --   bottombar:   10,  0, 10, 10
+    --   slimbox/box: 10, 10, 10, 10
+    pad_top   = 10,
+    pad_bot   =  0,
+    pad_left  = 10,
+    pad_right = 10,
+
+    -- If true, pad values are screen-pixels. If false, video-pixels.
+    pad_in_screenspace = true,
+    -- Calculate pad into the offset
+    offset_by_pad = true,
+
+    -- Background color in BBGGRR
+    background_color = "000000",
+    -- Alpha: 0 - fully opaque, 255 - transparent
+    background_alpha = 80,
+
     -- The maximum dimensions of the thumbnails (pixels)
     thumbnail_width = 200,
     thumbnail_height = 200,

@@ -123,37 +123,69 @@ function display_thumbnail(pos, value, ass)
         local thumbs_total = Thumbnailer.state.thumbnail_count
         local perc = math.floor((thumbs_ready / thumbs_total) * 100)
 
-        if thumbs_ready ~= thumbs_total then
-            local ass_w = thumb_size.w * msx
-            local ass_h = thumb_size.h * msy
-            local y_offset = get_thumbnail_y_offset(thumb_size, 1)
+        local display_progress = thumbs_ready ~= thumbs_total
 
-            local bg_h = ass_h + 30 * msy
-            local bg_left = pos.x - ass_w/2
-            local framegraph_h = 10 * msy
+        local vertical_offset = thumbnailer_options.vertical_offset
+        local padding = thumbnailer_options.background_padding
 
-            local bg_top = nil
-            local text_top = nil
-            local framegraph_top = nil
+        local pad = {
+            l = thumbnailer_options.pad_left, r = thumbnailer_options.pad_right,
+            t = thumbnailer_options.pad_top, b = thumbnailer_options.pad_bot
+        }
+        if thumbnailer_options.pad_in_screenspace then
+            pad.l = pad.l * msx
+            pad.r = pad.r * msx
+            pad.t = pad.t * msy
+            pad.b = pad.b * msy
+        end
 
+        if thumbnailer_options.offset_by_pad then
+            vertical_offset = vertical_offset + (user_opts.layout == "topbar" and pad.t or pad.b)
+        end
+
+        local ass_w = thumb_size.w * msx
+        local ass_h = thumb_size.h * msy
+        local y_offset = get_thumbnail_y_offset(thumb_size, 1)
+
+        local text_h = 30 * msy
+        local bg_h = ass_h + (display_progress and text_h or 0)
+        local bg_left = pos.x - ass_w/2
+        local framegraph_h = 10 * msy
+
+        local bg_top = nil
+        local text_top = nil
+        local framegraph_top = nil
+
+        if user_opts.layout == "topbar" then
+            bg_top = pos.y - ( y_offset + thumb_size.h ) + vertical_offset
+            text_top = bg_top + ass_h + framegraph_h
+            framegraph_top = bg_top + ass_h
+            vertical_offset = -vertical_offset
+        else
+            bg_top = pos.y - y_offset - bg_h - vertical_offset
+            text_top = bg_top
+            framegraph_top = bg_top + 20 * msy
+        end
+
+        if display_progress then
             if user_opts.layout == "topbar" then
-                bg_top = pos.y - ( y_offset + thumb_size.h )
-                text_top = bg_top + ass_h + framegraph_h
-                framegraph_top = bg_top + ass_h
+                pad.b = math.max(0, pad.b - 30)
             else
-                bg_top = pos.y - y_offset - bg_h
-                text_top = bg_top
-                framegraph_top = bg_top + 20 * msy
+                pad.t = math.max(0, pad.t - 30)
             end
+        end
 
-            -- Draw background
-            ass:new_event()
-            ass:pos(bg_left, bg_top)
-            ass:append(("{\\bord0\\1c&H000000&\\1a&H%X&"):format(80))
-            ass:draw_start()
-            -- ass:round_rect_cw(0, 0, ass_w, bg_h, 5)
-            ass:rect_cw(0, 0, ass_w, bg_h)
-            ass:draw_stop()
+
+
+        -- Draw background
+        ass:new_event()
+        ass:pos(bg_left, bg_top)
+        ass:append(("{\\bord0\\1c&H%s&\\1a&H%X&}"):format(thumbnailer_options.background_color, thumbnailer_options.background_alpha))
+        ass:draw_start()
+        ass:rect_cw(-pad.l, -pad.t, ass_w+pad.r, bg_h+pad.b)
+        ass:draw_stop()
+
+        if display_progress then
 
             ass:new_event()
             ass:pos(pos.x, text_top)
@@ -204,7 +236,7 @@ function display_thumbnail(pos, value, ass)
             local overlay_y_offset = get_thumbnail_y_offset(thumb_size, msy)
 
             local thumb_x = math.floor(pos.x / msx - thumb_size.w/2)
-            local thumb_y = math.floor(pos.y / msy - thumb_size.h - overlay_y_offset)
+            local thumb_y = math.floor(pos.y / msy - thumb_size.h - overlay_y_offset - vertical_offset/msy)
 
             osc_thumb_state.visible = true
             if not (osc_thumb_state.last_path == thumb_path and osc_thumb_state.last_x == thumb_x and osc_thumb_state.last_y == thumb_y) then
