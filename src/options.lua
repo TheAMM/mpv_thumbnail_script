@@ -64,6 +64,9 @@ local thumbnailer_options = {
     -- Alpha: 0 - fully opaque, 255 - transparent
     background_alpha = 80,
 
+    -- Keep thumbnail on the screen near left or right side
+    constrain_to_screen = true,
+
     -- The maximum dimensions of the thumbnails (pixels)
     thumbnail_width = 200,
     thumbnail_height = 200,

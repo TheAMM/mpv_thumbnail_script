@@ -116,6 +116,8 @@ function display_thumbnail(pos, value, ass)
         target_position = duration * (value / 100)
 
         local msx, msy = get_virt_scale_factor()
+        local osd_w, osd_h = mp.get_osd_size()
+
         local thumb_size = Thumbnailer.state.thumbnail_size
         local thumb_path, thumb_index, closest_index = Thumbnailer:get_thumbnail_path(target_position)
 
@@ -146,6 +148,18 @@ function display_thumbnail(pos, value, ass)
         local ass_w = thumb_size.w * msx
         local ass_h = thumb_size.h * msy
         local y_offset = get_thumbnail_y_offset(thumb_size, 1)
+
+        -- Constrain thumbnail display to window
+        -- (ie. don't let it go off-screen left/right)
+        if thumbnailer_options.constrain_to_screen and osd_w > (ass_w + pad.l + pad.r)/msx then
+            local padded_left = (pad.l + (ass_w / 2))
+            local padded_right = (pad.r + (ass_w / 2))
+            if pos.x - padded_left < 0 then
+                pos.x = padded_left
+            elseif pos.x + padded_right > osd_w*msx then
+                pos.x = osd_w*msx - padded_right
+            end
+        end
 
         local text_h = 30 * msy
         local bg_h = ass_h + (display_progress and text_h or 0)
