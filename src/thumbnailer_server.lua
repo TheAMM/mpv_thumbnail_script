@@ -177,8 +177,9 @@ function do_worker_job(state_json_string, frames_json_string)
     local generate_thumbnail_for_index = function(thumbnail_index)
         -- Given a 1-based thumbnail index, generate a thumbnail for it based on the thumbnailer state
 
-        local thumbnail_path = thumb_state.thumbnail_template:format(thumbnail_index - 1)
-        local timestamp = math.min(file_duration, (thumbnail_index - 1) * thumb_state.thumbnail_delta)
+        local thumbnail_path = thumb_state.thumbnail_template:format(thumbnail_index-1)
+        -- Grab the "middle" of the thumbnail duration instead of the very start, and leave some margin in the end
+        local timestamp = math.min(file_duration - 0.25, (thumbnail_index - 1 + 0.5) * thumb_state.thumbnail_delta)
 
         mp.commandv("script-message", "mpv_thumbnail_script-progress", tostring(thumbnail_index))
 

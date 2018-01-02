@@ -183,7 +183,7 @@ function Thumbnailer:get_thumbnail_count(delta)
     end
     local file_duration = mp.get_property_native("duration")
 
-    return math.floor(file_duration / delta)
+    return math.ceil(file_duration / delta)
 end
 
 function Thumbnailer:get_closest(thumbnail_index)
