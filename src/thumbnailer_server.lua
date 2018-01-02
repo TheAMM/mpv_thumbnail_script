@@ -175,8 +175,10 @@ function do_worker_job(state_json_string, frames_json_string)
     end
 
     local generate_thumbnail_for_index = function(thumbnail_index)
-        local thumbnail_path = thumb_state.thumbnail_template:format(thumbnail_index)
-        local timestamp = math.min(file_duration, thumbnail_index * thumb_state.thumbnail_delta)
+        -- Given a 1-based thumbnail index, generate a thumbnail for it based on the thumbnailer state
+
+        local thumbnail_path = thumb_state.thumbnail_template:format(thumbnail_index - 1)
+        local timestamp = math.min(file_duration, (thumbnail_index - 1) * thumb_state.thumbnail_delta)
 
         mp.commandv("script-message", "mpv_thumbnail_script-progress", tostring(thumbnail_index))
 
@@ -193,7 +195,7 @@ function do_worker_job(state_json_string, frames_json_string)
             local existing_thumbnail_filesize = thumbnail_file:seek("end")
             if existing_thumbnail_filesize ~= thumbnail_raw_size then
                 -- Size doesn't match, so (re)generate
-                msg.warn("Thumbnail", thumbnail_index, "did not match expected size, regenerating")
+                msg.warn("Thumbnail", thumbnail_index-1, "did not match expected size, regenerating")
                 need_thumbnail_generation = true
             end
             thumbnail_file:close()

@@ -163,7 +163,8 @@ function display_thumbnail(pos, value, ass)
             ass:append(("%d%% - %d/%d"):format(perc, thumbs_ready, thumbs_total))
 
             -- Draw the generation progress
-            local block_w = (thumb_size.w / thumbs_total) * msy
+            local block_w = thumb_size.w * (Thumbnailer.state.thumbnail_delta / duration) * msy
+            local block_max_x = thumb_size.w * msy
 
             -- Draw finished thumbnail blocks (white)
             ass:new_event()
@@ -171,8 +172,8 @@ function display_thumbnail(pos, value, ass)
             ass:append(("{\\bord0\\1c&HFFFFFF&\\1a&H%X&"):format(0))
             ass:draw_start(2)
             for i, v in pairs(Thumbnailer.state.thumbnails) do
-                if i ~= closest_index and v then
-                    ass:rect_cw(i*block_w, 0, (i+1)*block_w, framegraph_h)
+                if i ~= closest_index and v > 0 then
+                    ass:rect_cw((i-1)*block_w, 0, math.min(block_max_x, i*block_w), framegraph_h)
                 end
             end
             ass:draw_stop()
@@ -183,8 +184,8 @@ function display_thumbnail(pos, value, ass)
             ass:append(("{\\bord0\\1c&H44AA44&\\1a&H%X&"):format(0))
             ass:draw_start(2)
             for i, v in pairs(Thumbnailer.state.thumbnails) do
-                if i ~= closest_index and v == false then
-                    ass:rect_cw(i*block_w, 0, (i+1)*block_w, framegraph_h)
+                if i ~= closest_index and v == 0 then
+                    ass:rect_cw((i-1)*block_w, 0, math.min(block_max_x, i*block_w), framegraph_h)
                 end
             end
             ass:draw_stop()
@@ -194,7 +195,7 @@ function display_thumbnail(pos, value, ass)
                 ass:pos(bg_left, framegraph_top)
                 ass:append(("{\\bord0\\1c&H4444FF&\\1a&H%X&"):format(0))
                 ass:draw_start(2)
-                ass:rect_cw(closest_index*block_w, 0, (closest_index+1)*block_w, framegraph_h)
+                ass:rect_cw((closest_index-1)*block_w, 0, math.min(block_max_x, closest_index*block_w), framegraph_h)
                 ass:draw_stop()
             end
         end

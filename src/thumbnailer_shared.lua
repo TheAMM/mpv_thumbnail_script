@@ -14,6 +14,11 @@ local Thumbnailer = {
         thumbnail_size = nil,
 
         finished_thumbnails = 0,
+
+        -- List of thumbnail states (from 1 to thumbnail_count)
+        -- ready: 1
+        -- in progress: 0
+        -- not ready: -1
         thumbnails = {}
     },
     workers = {}
@@ -33,17 +38,19 @@ function Thumbnailer:on_file_loaded()
 end
 
 function Thumbnailer:on_thumb_ready(index)
-    self.state.thumbnails[index] = true
+    self.state.thumbnails[index] = 1
 
-    -- Recount (just in case)
+    -- Full recount instead of a naive increment (let's be safe!)
     self.state.finished_thumbnails = 0
-    for i in pairs(self.state.thumbnails) do
-        self.state.finished_thumbnails = self.state.finished_thumbnails + 1
+    for i, v in pairs(self.state.thumbnails) do
+        if v > 0 then
+            self.state.finished_thumbnails = self.state.finished_thumbnails + 1
+        end
     end
 end
 
 function Thumbnailer:on_thumb_progress(index)
-    self.state.thumbnails[index] = self.state.thumbnails[index] or false
+    self.state.thumbnails[index] = math.max(self.state.thumbnails[index], 0)
 end
 
 function Thumbnailer:on_video_change(params)
@@ -58,7 +65,12 @@ end
 
 function Thumbnailer:update_state()
     self.state.thumbnail_delta = self:get_delta()
-    self.state.thumbnail_count = self:get_thumbnail_count()
+    self.state.thumbnail_count = self:get_thumbnail_count(self.state.thumbnail_delta)
+
+    -- Prefill individual thumbnail states
+    for i = 1, self.state.thumbnail_count do
+        self.state.thumbnails[i] = -1
+    end
 
     self.state.thumbnail_template = self:get_thumbnail_template()
     self.state.thumbnail_size = self:get_thumbnail_size()
@@ -165,8 +177,7 @@ function Thumbnailer:get_delta()
 end
 
 
-function Thumbnailer:get_thumbnail_count()
-    local delta = self:get_delta()
+function Thumbnailer:get_thumbnail_count(delta)
     if delta == nil then
         return 0
     end
@@ -176,26 +187,50 @@ function Thumbnailer:get_thumbnail_count()
 end
 
 function Thumbnailer:get_closest(thumbnail_index)
-    local min_distance = self.state.thumbnail_count+1
+    -- Given a 1-based index, find the closest available thumbnail and return it's 1-based index
+
+    -- Check the direct thumbnail index first
+    if self.state.thumbnails[thumbnail_index] > 0 then
+        return thumbnail_index
+    end
+
+    local min_distance = self.state.thumbnail_count + 1
     local closest = nil
 
+    -- Naive, inefficient, lazy. But functional.
     for index, value in pairs(self.state.thumbnails) do
         local distance = math.abs(index - thumbnail_index)
-        if distance < min_distance and value then
+        if distance < min_distance and value > 0 then
             min_distance = distance
             closest = index
         end
     end
-    return closest, min_distance
+    return closest
+end
+
+function Thumbnailer:get_thumbnail_index(time_position)
+    -- Returns a 1-based thumbnail index for the given timestamp (between 1 and thumbnail_count, inclusive)
+    if self.state.thumbnail_delta and (self.state.thumbnail_count and self.state.thumbnail_count > 0) then
+        return math.min(math.floor(time_position / self.state.thumbnail_delta) + 1, self.state.thumbnail_count)
+    else
+        return nil
+    end
 end
 
 function Thumbnailer:get_thumbnail_path(time_position)
-    local thumbnail_index = math.min(math.floor(time_position / self.state.thumbnail_delta), self.state.thumbnail_count-1)
+    -- Given a timestamp, return:
+    --   the closest available thumbnail path (if any)
+    --   the 1-based thumbnail index calculated from the timestamp
+    --   the 1-based thumbnail index of the closest available (and used) thumbnail
+    -- OR nil if thumbnails are not available.
 
-    local closest, distance = self:get_closest(thumbnail_index)
+    local thumbnail_index = self:get_thumbnail_index(time_position)
+    if not thumbnail_index then return nil end
+
+    local closest = self:get_closest(thumbnail_index)
 
     if closest ~= nil then
-        return self.state.thumbnail_template:format(closest), thumbnail_index, closest
+        return self.state.thumbnail_template:format(closest-1), thumbnail_index, closest
     else
         return nil, thumbnail_index, nil
     end
@@ -243,13 +278,16 @@ function Thumbnailer:register_client()
 end
 
 function Thumbnailer:_create_thumbnail_job_order()
+    -- Returns a list of 1-based thumbnail indices in a job order
     local used_frames = {}
     local work_frames = {}
 
+    -- Pick frames in increasing frequency.
+    -- This way we can do a quick few passes over the video and then fill in the gaps.
     for x = 6, 0, -1 do
         local nth = (2^x)
 
-        for thi = 0, self.state.thumbnail_count-1, nth do
+        for thi = 1, self.state.thumbnail_count, nth do
             if not used_frames[thi] then
                 table.insert(work_frames, thi)
                 used_frames[thi] = true
