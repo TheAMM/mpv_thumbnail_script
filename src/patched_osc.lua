@@ -70,6 +70,19 @@ if not msg.trace then
     msg.trace = function(...) return mp.log("trace", ...) end
 end
 
+-- Patch in utils.format_bytes_humanized
+if not utils.format_bytes_humanized then
+    utils.format_bytes_humanized = function(b)
+        local d = {"Bytes", "KiB", "MiB", "GiB", "TiB", "PiB"}
+        local i = 1
+        while b >= 1024 do
+            b = b / 1024
+            i = i + 1
+        end
+        return string.format("%0.2f %s", b, d[i] and d[i] or "*1024^" .. (i-1))
+    end
+end
+
 Thumbnailer:register_client()
 
 function get_thumbnail_y_offset(thumb_size, msy)
