@@ -6,6 +6,10 @@ local thumbnailer_options = {
     -- The thumbnail directory
     cache_directory = join_paths(default_cache_base, "mpv_thumbs_cache"),
 
+    ------------------------
+    -- Generation options --
+    ------------------------
+
     -- Automatically generate the thumbnails on video load, without a keypress
     autogenerate = true,
 
@@ -38,6 +42,10 @@ local thumbnailer_options = {
     -- Disable the built-in keybind ("T") to add your own
     disable_keybinds = false,
 
+    ---------------------
+    -- Display options --
+    ---------------------
+
     -- Move the thumbnail up or down
     -- For example:
     --   topbar/bottombar: 24
@@ -69,6 +77,10 @@ local thumbnailer_options = {
 
     -- Do not display the thumbnailing progress
     hide_progress = false,
+
+    -----------------------
+    -- Thumbnail options --
+    -----------------------
 
     -- The maximum dimensions of the thumbnails (pixels)
     thumbnail_width = 200,
