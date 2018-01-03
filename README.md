@@ -137,6 +137,7 @@ remote_max_delta=120
 # Defaults to yes
 remote_direct_stream=[yes/no]
 ```
+(see [`src/options.lua`](/src/options.lua) for all possible options)
 
 With `disable_keybind=yes`, you can add your own keybind to [`input.conf`](https://mpv.io/manual/master/#input-conf) with `script-binding generate-thumbnails`, for example:
 ```ini
