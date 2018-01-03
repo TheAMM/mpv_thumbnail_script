@@ -138,7 +138,7 @@ function display_thumbnail(pos, value, ass)
         local thumbs_total = Thumbnailer.state.thumbnail_count
         local perc = math.floor((thumbs_ready / thumbs_total) * 100)
 
-        local display_progress = thumbs_ready ~= thumbs_total
+        local display_progress = thumbs_ready ~= thumbs_total and not thumbnailer_options.hide_progress
 
         local vertical_offset = thumbnailer_options.vertical_offset
         local padding = thumbnailer_options.background_padding

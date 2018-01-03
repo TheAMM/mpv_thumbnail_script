@@ -67,6 +67,9 @@ local thumbnailer_options = {
     -- Keep thumbnail on the screen near left or right side
     constrain_to_screen = true,
 
+    -- Do not display the thumbnailing progress
+    hide_progress = false,
+
     -- The maximum dimensions of the thumbnails (pixels)
     thumbnail_width = 200,
     thumbnail_height = 200,
