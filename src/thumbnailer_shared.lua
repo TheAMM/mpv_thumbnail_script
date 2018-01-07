@@ -58,8 +58,13 @@ function Thumbnailer:on_thumb_progress(index)
     self.state.thumbnails[index] = math.max(self.state.thumbnails[index], 0)
 end
 
-function Thumbnailer:on_video_change(params)
+function Thumbnailer:on_start_file()
+    -- Clear state when a new file is being loaded
     self:clear_state()
+end
+
+function Thumbnailer:on_video_change(params)
+    -- Gather a new state when we get proper video-dec-params and our state is empty
     if params ~= nil then
         if not self.state.ready then
             self:update_state()
@@ -391,4 +396,5 @@ function Thumbnailer:start_worker_jobs()
     end
 end
 
+mp.register_event("start-file", function() Thumbnailer:on_start_file() end)
 mp.observe_property("video-dec-params", "native", function(name, params) Thumbnailer:on_video_change(params) end)
