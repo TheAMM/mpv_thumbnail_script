@@ -74,6 +74,8 @@ end
 
 
 function Thumbnailer:update_state()
+    msg.debug("Gathering video/thumbnail state")
+
     self.state.thumbnail_delta = self:get_delta()
     self.state.thumbnail_count = self:get_thumbnail_count(self.state.thumbnail_delta)
 
@@ -105,6 +107,8 @@ function Thumbnailer:update_state()
     if has_video and self.state.thumbnail_delta ~= nil and self.state.thumbnail_size ~= nil and self.state.thumbnail_count > 0 then
         self.state.available = true
     end
+
+    msg.debug("Thumbnailer.state:", utils.to_string(self.state))
 
 end
 
@@ -374,22 +378,25 @@ function Thumbnailer:start_worker_jobs()
         mp.osd_message(err, 3)
 
     else
+        msg.debug( ("Splitting %d thumbnails amongst %d worker(s)"):format(self.state.thumbnail_count, worker_count) )
+
         local frame_job_order = self:_create_thumbnail_job_order()
         local worker_jobs = {}
         for i = 1, worker_count do worker_jobs[worker_list[i]] = {} end
 
-        -- Split frames amongs the workers
+        -- Split frames amongst the workers
         for i, thumbnail_index in ipairs(frame_job_order) do
             local worker_id = worker_list[ ((i-1) % worker_count) + 1 ]
             table.insert(worker_jobs[worker_id], thumbnail_index)
         end
 
         local state_json_string = utils.format_json(self.state)
+        msg.debug("Giving workers state:", state_json_string)
 
         for worker_name, worker_frames in pairs(worker_jobs) do
             if #worker_frames > 0 then
                 local frames_json_string = utils.format_json(worker_frames)
-                msg.debug("Giving job to", worker_name, frames_json_string)
+                msg.debug("Assigning job to", worker_name, frames_json_string)
                 mp.commandv("script-message-to", worker_name, "mpv_thumbnail_script-job", state_json_string, frames_json_string)
             end
         end
