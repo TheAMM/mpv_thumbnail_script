@@ -241,7 +241,7 @@ mp.register_script_message("mpv_thumbnail_script-job", do_worker_job)
 
 -- Register this worker with the master script
 local register_timer = nil
-local register_timeout = mp.get_time() + 3
+local register_timeout = mp.get_time() + 1.5
 
 local register_function = function()
     if mp.get_time() > register_timeout and register_timer then

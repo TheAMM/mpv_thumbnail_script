@@ -25,6 +25,10 @@ local Thumbnailer = {
         -- Extra options for the workers
         worker_extra = {},
     },
+    -- Set in register_client
+    worker_register_timeout = nil,
+    -- A timer used to wait for more workers in case we have none
+    worker_wait_timer = nil,
     workers = {}
 }
 
@@ -253,6 +257,8 @@ function Thumbnailer:get_thumbnail_path(time_position)
 end
 
 function Thumbnailer:register_client()
+    self.worker_register_timeout = mp.get_time() + 2
+
     mp.register_script_message("mpv_thumbnail_script-ready", function(index, path)
         self:on_thumb_ready(tonumber(index), path)
     end)
@@ -285,8 +291,8 @@ function Thumbnailer:register_client()
     local thumb_script_key = not thumbnailer_options.disable_keybinds and "T" or nil
     mp.add_key_binding(thumb_script_key, "generate-thumbnails", function()
         if self.state.available then
-            self:start_worker_jobs()
             mp.osd_message("Started thumbnailer jobs")
+            self:start_worker_jobs()
         else
             mp.osd_message("Thumbnailing unavailabe")
         end
@@ -353,8 +359,6 @@ function Thumbnailer:prepare_source_path()
 end
 
 function Thumbnailer:start_worker_jobs()
-    self.state.enabled = true
-
     -- Create directory for the thumbnails, if needed
     local l, err = utils.readdir(self.state.thumbnail_directory)
     if err then
@@ -372,12 +376,33 @@ function Thumbnailer:start_worker_jobs()
 
     local worker_count = #worker_list
 
+    -- In case we have a worker timer created already, clear it
+    -- (For example, if the video-dec-params change in quick succession or the user pressed T, etc)
+    if self.worker_wait_timer then
+        self.worker_wait_timer:stop()
+    end
+
     if worker_count == 0 then
-        local err = "No thumbnail workers found. Make sure you are not missing a script!"
-        msg.error(err)
-        mp.osd_message(err, 3)
+        local now = mp.get_time()
+        if mp.get_time() > self.worker_register_timeout then
+            -- Workers have had their time to register but we have none!
+            local err = "No thumbnail workers found. Make sure you are not missing a script!"
+            msg.error(err)
+            mp.osd_message(err, 3)
+
+        else
+            -- We may be too early. Delay the work start a bit to try again.
+            msg.warn("No workers found. Waiting a bit more for them.")
+            -- Wait at least half a second
+            local wait_time = math.max(self.worker_register_timeout - now, 0.5)
+            self.worker_wait_timer = mp.add_timeout(wait_time, function() self:start_worker_jobs() end)
+        end
 
     else
+        -- We have at least one worker. This may not be all of them, but they have had
+        -- their time to register; we've done our best waiting for them.
+        self.state.enabled = true
+
         msg.debug( ("Splitting %d thumbnails amongst %d worker(s)"):format(self.state.thumbnail_count, worker_count) )
 
         local frame_job_order = self:_create_thumbnail_job_order()
