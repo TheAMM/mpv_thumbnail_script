@@ -294,7 +294,7 @@ function Thumbnailer:register_client()
             mp.osd_message("Started thumbnailer jobs")
             self:start_worker_jobs()
         else
-            mp.osd_message("Thumbnailing unavailabe")
+            mp.osd_message("Thumbnailing unavailable")
         end
     end)
 end
