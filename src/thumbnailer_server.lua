@@ -12,6 +12,13 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
     local ytdl_disabled = not options.enable_ytdl and (mp.get_property_native("ytdl") == false
                                                        or thumbnailer_options.remote_direct_stream)
 
+    local header_fields_arg = nil
+    local header_fields = mp.get_property_native("http-header-fields")
+    if #header_fields > 0 then
+        -- We can't escape the headers, mpv won't parse "--http-header-fields='Name: value'" properly
+        header_fields_arg = "--http-header-fields=" .. table.concat(header_fields, ",")
+    end
+
     local profile_arg = nil
     if thumbnailer_options.mpv_profile ~= "" then
         profile_arg = "--profile=" .. thumbnailer_options.mpv_profile
@@ -26,6 +33,11 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
 
         -- Disable ytdl
         (ytdl_disabled and "--no-ytdl" or nil),
+        -- Pass HTTP headers from current instance
+        header_fields_arg,
+        -- Pass User-Agent and Referer - should do no harm even with ytdl active
+        "--user-agent=" .. mp.get_property_native("user-agent"),
+        "--referrer=" .. mp.get_property_native("referrer"),
         -- Disable hardware decoding
         "--hwdec=no",
 
