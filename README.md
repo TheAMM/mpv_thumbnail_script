@@ -17,7 +17,7 @@ This allows you to preview the end of the file before every thumbnail has been g
 
 ## How do I install it?
 
-Grab the `.lua` files from the [**releases page**](https://github.com/TheAMM/mpv_thumbnail_script/releases) and place them in your mpv's `scripts` directory.
+Grab the `.lua` files from the [**releases page**](https://github.com/TheAMM/mpv_thumbnail_script/releases) and place them in mpv's `scripts` directory.
 
 For example:
   * Linux/Unix/Mac: `~/.config/mpv/scripts/mpv_thumbnail_script_server.lua` & `~/.config/mpv/scripts/mpv_thumbnail_script_client_osc.lua`
