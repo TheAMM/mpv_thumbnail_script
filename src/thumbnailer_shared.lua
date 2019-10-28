@@ -56,6 +56,10 @@ function Thumbnailer:on_thumb_ready(index)
             self.state.finished_thumbnails = self.state.finished_thumbnails + 1
         end
     end
+
+    if thumbnailer_options.quit_when_done and self.state.finished_thumbnails == self.state.thumbnail_count then
+       mp.commandv("quit")
+    end
 end
 
 function Thumbnailer:on_thumb_progress(index)

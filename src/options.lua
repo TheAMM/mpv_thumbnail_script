@@ -42,6 +42,9 @@ local thumbnailer_options = {
     -- Disable the built-in keybind ("T") to add your own
     disable_keybinds = false,
 
+    -- Quit mpv when thumbnails have been generated
+    quit_when_done = false,
+
     ---------------------
     -- Display options --
     ---------------------
