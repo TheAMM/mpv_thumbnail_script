@@ -24,6 +24,10 @@ local Thumbnailer = {
         worker_input_path = nil,
         -- Extra options for the workers
         worker_extra = {},
+        video_dec_params = nil,
+        path = nil,
+        duration = nil
+
     },
     -- Set in register_client
     worker_register_timeout = nil,
@@ -39,12 +43,15 @@ function Thumbnailer:clear_state()
     self.state.finished_thumbnails = 0
     self.state.thumbnails = {}
     self.state.worker_extra = {}
+    self.state.video_dec_params = nil
+    self.state.path = nil
+    self.state.duration = nil
 end
 
 
-function Thumbnailer:on_file_loaded()
-    self:clear_state()
-end
+-- function Thumbnailer:on_file_loaded()
+--     self:clear_state()
+-- end
 
 function Thumbnailer:on_thumb_ready(index)
     self.state.thumbnails[index] = 1
@@ -93,8 +100,7 @@ function Thumbnailer:update_state()
 
     self.state.ready = true
 
-    local file_path = mp.get_property_native("path")
-    self.state.is_remote = file_path:find("://") ~= nil
+    self.state.is_remote = self.state.path:find("://") ~= nil
 
     self.state.available = false
 
@@ -118,8 +124,7 @@ end
 
 
 function Thumbnailer:get_thumbnail_template()
-    local file_path = mp.get_property_native("path")
-    local is_remote = file_path:find("://") ~= nil
+    local is_remote = self.state.path:find("://") ~= nil
 
     local filename = mp.get_property_native("filename/no-ext")
     local filesize = mp.get_property_native("file-size", 0)
@@ -143,7 +148,8 @@ end
 
 
 function Thumbnailer:get_thumbnail_size()
-    local video_dec_params = mp.get_property_native("video-dec-params")
+    -- local video_dec_params = mp.get_property_native("video-dec-params")
+    local video_dec_params = self.state.video_dec_params
     local video_width = video_dec_params.dw
     local video_height = video_dec_params.dh
     if not (video_width and video_height) then
@@ -163,19 +169,17 @@ end
 
 
 function Thumbnailer:get_delta()
-    local file_path = mp.get_property_native("path")
-    local file_duration = mp.get_property_native("duration")
     local is_seekable = mp.get_property_native("seekable")
 
     -- Naive url check
-    local is_remote = file_path:find("://") ~= nil
+    local is_remote = self.state.path:find("://") ~= nil
 
     local remote_and_disallowed = is_remote
     if is_remote and thumbnailer_options.thumbnail_network then
         remote_and_disallowed = false
     end
 
-    if remote_and_disallowed or not is_seekable or not file_duration then
+    if remote_and_disallowed or not is_seekable or not self.state.duration then
         -- Not a local path (or remote thumbnails allowed), not seekable or lacks duration
         return nil
     end
@@ -190,7 +194,7 @@ function Thumbnailer:get_delta()
         max_delta = thumbnailer_options.remote_max_delta
     end
 
-    local target_delta = (file_duration / thumbnail_count)
+    local target_delta = (self.state.duration / thumbnail_count)
     local delta = math.max(min_delta, math.min(max_delta, target_delta))
 
     return delta
@@ -201,9 +205,8 @@ function Thumbnailer:get_thumbnail_count(delta)
     if delta == nil then
         return 0
     end
-    local file_duration = mp.get_property_native("duration")
 
-    return math.ceil(file_duration / delta)
+    return math.ceil(self.state.duration / delta)
 end
 
 function Thumbnailer:get_closest(thumbnail_index)
@@ -320,41 +323,40 @@ function Thumbnailer:_create_thumbnail_job_order()
 end
 
 function Thumbnailer:prepare_source_path()
-    local file_path = mp.get_property_native("path")
 
     if self.state.is_remote and thumbnailer_options.remote_direct_stream then
         -- Use the direct stream (possibly) provided by ytdl
         -- This skips ytdl on the sub-calls, making the thumbnailing faster
         -- Works well on YouTube, rest not really tested
-        file_path = mp.get_property_native("stream-path")
+        self.state.path = mp.get_property_native("stream-path")
 
         -- edl:// urls can get LONG. In which case, save the path (URL)
         -- to a temporary file and use that instead.
         local playlist_filename = join_paths(self.state.thumbnail_directory, "playlist.txt")
 
-        if #file_path > 8000 then
+        if #self.state.path > 8000 then
             -- Path is too long for a playlist - just pass the original URL to
             -- workers and allow ytdl
             self.state.worker_extra.enable_ytdl = true
-            file_path = mp.get_property_native("path")
+            self.state.path = mp.get_property_native("path")
             msg.warn("Falling back to original URL and ytdl due to LONG source path. This will be slow.")
 
-        elseif #file_path > 1024 then
+        elseif #self.state.path > 1024 then
             local playlist_file = io.open(playlist_filename, "wb")
             if not playlist_file then
                 msg.error(("Tried to write a playlist to %s but couldn't!"):format(playlist_file))
                 return false
             end
 
-            playlist_file:write(file_path .. "\n")
+            playlist_file:write(self.state.path .. "\n")
             playlist_file:close()
 
-            file_path = "--playlist=" .. playlist_filename
+            self.state.path = "--playlist=" .. playlist_filename
             msg.warn("Using playlist workaround due to long source path")
         end
     end
 
-    self.state.worker_input_path = file_path
+    self.state.worker_input_path = self.state.path
     return true
 end
 
@@ -428,5 +430,23 @@ function Thumbnailer:start_worker_jobs()
     end
 end
 
+local required_props = {"video-dec-params", "path", "duration"}
+
+function check_init(name, value)
+    if value == nil then return end
+    required_props[name] = value
+    Thumbnailer.state[name:gsub("-", "_")] = value
+    for i, prop in ipairs(required_props) do
+        if Thumbnailer.state[prop:gsub("-", "_")] == nil then
+            return
+        end
+    end
+    Thumbnailer:on_video_change(required_props["video-dec-params"])
+end
+
+for i, prop in ipairs(required_props) do
+    mp.observe_property(prop, "native", check_init)
+end
+
 mp.register_event("start-file", function() Thumbnailer:on_start_file() end)
-mp.observe_property("video-dec-params", "native", function(name, params) Thumbnailer:on_video_change(params) end)
+-- mp.observe_property("video-dec-params", "native", function(name, params) Thumbnailer:on_video_change(params) end)
