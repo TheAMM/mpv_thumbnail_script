@@ -94,7 +94,7 @@ function Thumbnailer:update_state()
     self.state.ready = true
 
     local file_path = mp.get_property_native("path")
-    self.state.is_remote = file_path:find("://") ~= nil
+    self.state.is_remote = path_is_remote(file_path)
 
     self.state.available = false
 
@@ -119,12 +119,11 @@ end
 
 function Thumbnailer:get_thumbnail_template()
     local file_path = mp.get_property_native("path")
-    local is_remote = file_path:find("://") ~= nil
 
     local filename = mp.get_property_native("filename/no-ext")
     local filesize = mp.get_property_native("file-size", 0)
 
-    if is_remote then
+    if self.state.is_remote then
         filesize = 0
     end
 
@@ -161,19 +160,44 @@ function Thumbnailer:get_thumbnail_size()
     return { w=w, h=h }
 end
 
+function path_is_remote(path)
+
+    if path == nil then
+        return false
+    end
+
+    local path_protocol = path:match("^(%w+)://")
+    if path_protocol ~= nil then
+        for network_protocol in thumbnailer_options.thumbnail_network_protocols:gmatch("([^|]+)") do
+            local pattern = "^(" .. network_protocol .. ")"
+            if path_protocol:lower():match(pattern) then
+                return true
+            end
+        end
+    end
+
+    if thumbnailer_options.thumbnail_network_paths ~= nil then
+        local path_without_protocol = path
+        if path_protocol ~= nil then
+            path_without_protocol = path:gsub(path_protocol, "")
+        end
+        for pattern in thumbnailer_options.thumbnail_network_paths:gmatch("([^|]+)") do
+            if path_without_protocol:match(pattern) then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 
 function Thumbnailer:get_delta()
     local file_path = mp.get_property_native("path")
     local file_duration = mp.get_property_native("duration")
     local is_seekable = mp.get_property_native("seekable")
 
-    -- Naive url check
-    local is_remote = file_path:find("://") ~= nil
-
-    local remote_and_disallowed = is_remote
-    if is_remote and thumbnailer_options.thumbnail_network then
-        remote_and_disallowed = false
-    end
+    local remote_and_disallowed = path_is_remote(file_path) and not thumbnailer_options.thumbnail_network
 
     if remote_and_disallowed or not is_seekable or not file_duration then
         -- Not a local path (or remote thumbnails allowed), not seekable or lacks duration

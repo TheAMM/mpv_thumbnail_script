@@ -106,8 +106,34 @@ local thumbnailer_options = {
     -- Overrides for remote urls (you generally want less thumbnails!)
     -- Thumbnailing network paths will be done with mpv
 
-    -- Allow thumbnailing network paths (naive check for "://")
+    -- Allow thumbnailing network paths (see thumbnail_network_paths))
     thumbnail_network = false,
+
+    -- The settings below control how video paths are parsed to determine
+    -- whether they represent local or network locations.  All of these pattern
+    -- settings are pipe-delimited lists of Lua pattern strings, see
+    -- http://lua-users.org/wiki/PatternsTutorial for details on pattern syntax.
+
+    -- Pipe-delimited list of patterns to be matched against the protocol
+    -- identifier (if present) for a video's URL.  Protocols matching these
+    -- patterns are considered network protocols for the purpose of the
+    -- network/remote thumbnail settings.
+    thumbnail_network_protocols = "http%w+|s?ftp%w+|s?rt%w+|mms%w+|smb|tcp|tls|udp",
+
+    -- Pipe-delimited list of patterns to be matched against the protocol
+    -- identifier (if present) for a video's URL.  Protocols matching these
+    -- patterns are considered local files.  Paths without a protocol identifier
+    -- are assumed to be local files as well.
+    thumbnail_file_protocols = "file|appending|archive|rar",
+
+    -- Pipe-delimited list of Lua patterns to be matched against the video
+    -- pathname (without the protocol identifier) to determine if it will be
+    -- considered a network path or not.  This list is only checked when the
+    -- protocol identifier is empty, or when it matches one of the patterns in
+    -- thumbnail_file_protcols.  Example: "^/mnt/nas|/mnt/raid" will treat
+    -- video paths /mnt/nas/videos/cats.mp4 and file:///mnt/raid/videos/dogs.mp4
+    -- as network paths.
+    thumbnail_network_paths =  "",
     -- Override thumbnail count, min/max delta
     remote_thumbnail_count = 60,
     remote_min_delta = 15,
