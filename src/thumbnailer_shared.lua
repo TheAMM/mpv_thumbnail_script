@@ -68,8 +68,10 @@ function Thumbnailer:on_start_file()
 end
 
 function Thumbnailer:on_video_change(params)
-    -- Gather a new state when we get proper video-dec-params and our state is empty
-    if params ~= nil then
+    local duration = mp.get_property_native("duration")
+    -- Gather a new state when we have proper video-dec-params, duration
+    -- and our state is empty
+    if params ~= nil and duration ~= nil then
         if not self.state.ready then
             self:update_state()
         end
