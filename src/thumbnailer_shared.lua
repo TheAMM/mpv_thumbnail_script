@@ -265,7 +265,9 @@ function Thumbnailer:register_client()
         self:on_thumb_ready(tonumber(index), path)
     end)
     mp.register_script_message("mpv_thumbnail_script-progress", function(index, path)
-        self:on_thumb_progress(tonumber(index), path)
+        if self.state.ready then
+          self:on_thumb_progress(tonumber(index), path)
+        end
     end)
 
     mp.register_script_message("mpv_thumbnail_script-worker", function(worker_name)
