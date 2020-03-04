@@ -146,6 +146,11 @@ end
 
 function Thumbnailer:get_thumbnail_size()
     local video_dec_params = mp.get_property_native("video-dec-params")
+    -- Guard against nil video_dec_params before trying to access dimensions
+    if video_dec_params == nil then
+      return nil
+    end
+
     local video_width = video_dec_params.dw
     local video_height = video_dec_params.dh
     if not (video_width and video_height) then
