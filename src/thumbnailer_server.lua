@@ -146,6 +146,12 @@ function do_worker_job(state_json_string, frames_json_string)
     end
 
     local file_duration = mp.get_property_native("duration")
+    -- We seem to end up with a nil duration when a worker is assigned a job and
+    -- then the video ends before we reach this point.
+    if file_duration == nil then
+      return
+    end
+
     local file_path = thumb_state.worker_input_path
 
     if thumb_state.is_remote then
