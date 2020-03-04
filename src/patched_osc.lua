@@ -260,6 +260,15 @@ function display_thumbnail(pos, value, ass)
         end
 
         if thumb_path then
+            -- Ensure the thumbnail exists before trying to add it to the
+            -- overlay.
+            local thumb = io.open(thumb_path, 'r')
+            if thumb == nil then
+              return
+            else
+              io.close(thumb)
+            end
+
             local overlay_y_offset = get_thumbnail_y_offset(thumb_size, msy)
 
             local thumb_x = math.floor(pos.x / msx - thumb_size.w/2)
