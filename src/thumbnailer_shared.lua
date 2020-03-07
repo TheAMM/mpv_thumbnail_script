@@ -205,10 +205,10 @@ end
 
 
 function Thumbnailer:get_thumbnail_count(delta)
-    if delta == nil then
+    local file_duration = mp.get_property_native("duration")
+    if delta == nil or file_duration == nil then
         return 0
     end
-    local file_duration = mp.get_property_native("duration")
 
     return math.ceil(file_duration / delta)
 end
