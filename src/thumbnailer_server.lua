@@ -13,7 +13,7 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
                                                        or thumbnailer_options.remote_direct_stream)
 
     local header_fields_arg = nil
-    local header_fields = mp.get_property_native("http-header-fields")
+    local header_fields = mp.get_property_native("http-header-fields", {})
     if #header_fields > 0 then
         -- We can't escape the headers, mpv won't parse "--http-header-fields='Name: value'" properly
         header_fields_arg = "--http-header-fields=" .. table.concat(header_fields, ",")
@@ -36,8 +36,8 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         -- Pass HTTP headers from current instance
         header_fields_arg,
         -- Pass User-Agent and Referer - should do no harm even with ytdl active
-        "--user-agent=" .. mp.get_property_native("user-agent"),
-        "--referrer=" .. mp.get_property_native("referrer"),
+        "--user-agent=" .. mp.get_property_native("user-agent", ""),
+        "--referrer=" .. mp.get_property_native("referrer", ""),
         -- Disable hardware decoding
         "--hwdec=no",
 
@@ -146,6 +146,11 @@ function do_worker_job(state_json_string, frames_json_string)
     end
 
     local file_duration = mp.get_property_native("duration")
+    -- Bail if we get a nil duration
+    if not file_duration then
+      return
+    end
+
     local file_path = thumb_state.worker_input_path
 
     if thumb_state.is_remote then
