@@ -2,6 +2,9 @@ local Thumbnailer = {
     cache_directory = thumbnailer_options.cache_directory,
 
     state = {
+        -- Used to make sure updates sent to us by workers correspond to the
+        -- current state (the video hasn't changed)
+        id = 0,
         ready = false,
         available = false,
         enabled = false,
@@ -33,7 +36,10 @@ local Thumbnailer = {
 }
 
 function Thumbnailer:clear_state()
+    local prev_state_id = self.state.id
+
     clear_table(self.state)
+    self.state.id = prev_state_id + 1
     self.state.ready = false
     self.state.available = false
     self.state.finished_thumbnails = 0
@@ -46,7 +52,11 @@ function Thumbnailer:on_file_loaded()
     self:clear_state()
 end
 
-function Thumbnailer:on_thumb_ready(index)
+function Thumbnailer:on_thumb_ready(state_id, index)
+    if self.state.id ~= state_id then
+      return
+    end
+
     self.state.thumbnails[index] = 1
 
     -- Full recount instead of a naive increment (let's be safe!)
@@ -58,7 +68,11 @@ function Thumbnailer:on_thumb_ready(index)
     end
 end
 
-function Thumbnailer:on_thumb_progress(index)
+function Thumbnailer:on_thumb_progress(state_id, index)
+    if self.state.id ~= state_id then
+      return
+    end
+
     self.state.thumbnails[index] = math.max(self.state.thumbnails[index], 0)
 end
 
@@ -259,11 +273,11 @@ end
 function Thumbnailer:register_client()
     self.worker_register_timeout = mp.get_time() + 2
 
-    mp.register_script_message("mpv_thumbnail_script-ready", function(index, path)
-        self:on_thumb_ready(tonumber(index), path)
+    mp.register_script_message("mpv_thumbnail_script-ready", function(state_id, index, path)
+        self:on_thumb_ready(tonumber(state_id), tonumber(index), path)
     end)
-    mp.register_script_message("mpv_thumbnail_script-progress", function(index, path)
-        self:on_thumb_progress(tonumber(index), path)
+    mp.register_script_message("mpv_thumbnail_script-progress", function(state_id, index, path)
+        self:on_thumb_progress(tonumber(state_id), tonumber(index), path)
     end)
 
     mp.register_script_message("mpv_thumbnail_script-worker", function(worker_name)
@@ -371,7 +385,7 @@ function Thumbnailer:start_worker_jobs()
         return
     end
 
-    local worker_list = {}
+    local worker_list = { state_id = self.state.id }
     for worker_name in pairs(self.workers) do table.insert(worker_list, worker_name) end
 
     local worker_count = #worker_list

@@ -129,6 +129,7 @@ function do_worker_job(state_json_string, frames_json_string)
         msg.error("Failed to parse state JSON")
         return
     end
+    local state_id = thumb_state.id
 
     local thumbnail_indexes, err = utils.parse_json(frames_json_string)
     if err then
@@ -169,7 +170,7 @@ function do_worker_job(state_json_string, frames_json_string)
         -- Grab the "middle" of the thumbnail duration instead of the very start, and leave some margin in the end
         local timestamp = math.min(file_duration - 0.25, (thumb_idx + 0.5) * thumb_state.thumbnail_delta)
 
-        mp.commandv("script-message", "mpv_thumbnail_script-progress", tostring(thumbnail_index))
+        mp.commandv("script-message", "mpv_thumbnail_script-progress", tostring(state_id), tostring(thumbnail_index))
 
         -- The expected size (raw BGRA image)
         local thumbnail_raw_size = (thumb_state.thumbnail_size.w * thumb_state.thumbnail_size.h * 4)
@@ -234,7 +235,7 @@ function do_worker_job(state_json_string, frames_json_string)
         end
 
         msg.debug("Finished work on thumbnail", thumb_idx)
-        mp.commandv("script-message", "mpv_thumbnail_script-ready", tostring(thumbnail_index), thumbnail_path)
+        mp.commandv("script-message", "mpv_thumbnail_script-ready", tostring(state_id), tostring(thumbnail_index), thumbnail_path)
     end
 
     msg.debug(("Generating %d thumbnails @ %dx%d for %q"):format(
