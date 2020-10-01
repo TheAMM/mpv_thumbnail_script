@@ -59,7 +59,7 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         "--vf-add=format=bgra",
         "--of=rawvideo",
         "--ovc=rawvideo",
-        "--o=" .. output_path
+        ("--o=%s"):format(output_path)
     })
     return utils.subprocess({args=mpv_command})
 end
