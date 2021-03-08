@@ -146,6 +146,7 @@ function do_worker_job(state_json_string, frames_json_string)
     end
 
     local file_duration = mp.get_property_native("duration")
+    if file_duration == nil then file_duration = 0 end
     local file_path = thumb_state.worker_input_path
 
     if thumb_state.is_remote then

@@ -165,6 +165,7 @@ end
 function Thumbnailer:get_delta()
     local file_path = mp.get_property_native("path")
     local file_duration = mp.get_property_native("duration")
+    if file_duration == nil then file_duration = 0 end
     local is_seekable = mp.get_property_native("seekable")
 
     -- Naive url check
@@ -202,6 +203,7 @@ function Thumbnailer:get_thumbnail_count(delta)
         return 0
     end
     local file_duration = mp.get_property_native("duration")
+    if file_duration == nil then file_duration = 0 end
 
     return math.ceil(file_duration / delta)
 end
@@ -278,7 +280,9 @@ function Thumbnailer:register_client()
     -- This will be executed after the on_video_change (because it's registered after it)
     mp.observe_property("video-dec-params", "native", function()
         local duration = mp.get_property_native("duration")
+        if duration == nil then duration = 0 end
         local max_duration = thumbnailer_options.autogenerate_max_duration
+        if max_duration == nil then max_duration = 0 end
 
         if duration ~= nil and self.state.available and thumbnailer_options.autogenerate then
             -- Notify if autogenerate is on and video is not too long
