@@ -129,8 +129,12 @@ function Thumbnailer:get_thumbnail_template()
     end
 
     filename = filename:gsub('[^a-zA-Z0-9_.%-\' ]', '')
-    -- Hash overly long filenames (most likely URLs)
-    if #filename > thumbnailer_options.hash_filename_length then
+
+    -- Hash remote URLs
+    if filesize == 0 then
+        filename = sha1.hex(file_path)
+    -- Hash overly long filenames
+    elseif #filename > thumbnailer_options.hash_filename_length then
         filename = sha1.hex(filename)
     end
 
