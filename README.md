@@ -17,7 +17,7 @@ This allows you to preview the end of the file before every thumbnail has been g
 
 ## How do I install it?
 
-Grab the `.lua` files from the [**releases page**](https://github.com/TheAMM/mpv_thumbnail_script/releases) and place them in mpv's `scripts` directory.
+Grab the `.lua` files from the [**releases page**](https://github.com/marzzzello/mpv_thumbnail_script/releases) and place them in mpv's `scripts` directory.
 
 For example:
   * Linux/Unix/Mac: `~/.config/mpv/scripts/mpv_thumbnail_script_server.lua` & `~/.config/mpv/scripts/mpv_thumbnail_script_client_osc.lua`
@@ -151,10 +151,6 @@ Included in the repository is the `concat_files.py` tool I use for automatically
 The script requires Python 3, so install that. Nothing more, though. Call it with `concat_files.py cat_osc.json`.
 
 You may also, of course, just `cat` the files together yourself. See the [`cat_osc.json`](cat_osc.json)/[`cat_server.json`](cat_server.json) for the order.
-
-### Donation
-
-If you *really* get a kick out of this (weirdo), you can [paypal me](https://www.paypal.me/TheAMM) or send bitcoins to `1K9FH7J3YuC9EnQjjDZJtM4EFUudHQr52d`. Just having the option there, is all.
 
 #### Footnotes
 <sup>1</sup>You *may* need to add `mpv[.exe]` to your `PATH` (and *will* have to add `ffmpeg[.exe]` if you want faster generation).
