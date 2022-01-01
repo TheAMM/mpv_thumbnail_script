@@ -48,6 +48,10 @@ local user_opts = {
     windowcontrols = "auto",    -- whether to show window controls
     windowcontrols_alignment = "right", -- which side to show window controls on
     greenandgrumpy = false,     -- disable santa hat
+    livemarkers = true,         -- update seekbar chapter markers on duration change
+    chapters_osd = true,        -- whether to show chapters OSD on next/prev
+    playlist_osd = true,        -- whether to show playlist OSD on next/prev
+    chapter_fmt = "Chapter: %s", -- chapter print format for seekbar-hover. "no" to disable
 }
 
 -- read options from config and command-line
@@ -357,6 +361,12 @@ local is_december = os.date("*t").month == 12
 --
 -- Helperfunctions
 --
+
+function kill_animation()
+    state.anistart = nil
+    state.animation = nil
+    state.anitype =  nil
+end
 
 function set_osd(res_x, res_y, text)
     if state.osd.res_x == res_x and
@@ -819,7 +829,37 @@ end
 -- Element Rendering
 --
 
+-- returns nil or a chapter element from the native property chapter-list
+function get_chapter(possec)
+    local cl = mp.get_property_native("chapter-list", {})
+    local ch = nil
+
+    -- chapters might not be sorted by time. find nearest-before/at possec
+    for n=1, #cl do
+        if possec >= cl[n].time and (not ch or cl[n].time > ch.time) then
+            ch = cl[n]
+        end
+    end
+    return ch
+end
+
 function render_elements(master_ass)
+
+    -- when the slider is dragged or hovered and we have a target chapter name
+    -- then we use it instead of the normal title. we calculate it before the
+    -- render iterations because the title may be rendered before the slider.
+    state.forced_title = nil
+    local se, ae = state.slider_element, elements[state.active_element]
+    if user_opts.chapter_fmt ~= "no" and se and (ae == se or (not ae and mouse_hit(se))) then
+        local dur = mp.get_property_number("duration", 0)
+        if dur > 0 then
+            local possec = get_slider_value(se) * dur / 100 -- of mouse pos
+            local ch = get_chapter(possec)
+            if ch and ch.title and ch.title ~= "" then
+                state.forced_title = string.format(user_opts.chapter_fmt, ch.title)
+            end
+        end
+    end
 
     for n=1, #elements do
         local element = elements[n]
@@ -1919,6 +1959,7 @@ function update_options(list)
     validate_user_opts()
     request_tick()
     visibility_mode(user_opts.visibility, true)
+    update_duration_watch()
     request_init()
 end
 
@@ -1970,7 +2011,8 @@ function osc_init()
     ne = new_element("title", "button")
 
     ne.content = function ()
-        local title = mp.command_native({"expand-text", user_opts.title})
+        local title = state.forced_title or
+                      mp.command_native({"expand-text", user_opts.title})
         -- escape ASS, and strip newlines and trailing slashes
         title = title:gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")
         return not (title == "") and title or "mpv"
@@ -1998,7 +2040,9 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("playlist-prev", "weak")
-            show_message(get_playlist(), 3)
+            if user_opts.playlist_osd then
+                show_message(get_playlist(), 3)
+            end
         end
     ne.eventresponder["shift+mbtn_left_up"] =
         function () show_message(get_playlist(), 3) end
@@ -2013,7 +2057,9 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("playlist-next", "weak")
-            show_message(get_playlist(), 3)
+            if user_opts.playlist_osd then
+                show_message(get_playlist(), 3)
+            end
         end
     ne.eventresponder["shift+mbtn_left_up"] =
         function () show_message(get_playlist(), 3) end
@@ -2068,7 +2114,9 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("add", "chapter", -1)
-            show_message(get_chapterlist(), 3)
+            if user_opts.chapters_osd then
+                show_message(get_chapterlist(), 3)
+            end
         end
     ne.eventresponder["shift+mbtn_left_up"] =
         function () show_message(get_chapterlist(), 3) end
@@ -2083,7 +2131,9 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("add", "chapter", 1)
-            show_message(get_chapterlist(), 3)
+            if user_opts.chapters_osd then
+                show_message(get_chapterlist(), 3)
+            end
         end
     ne.eventresponder["shift+mbtn_left_up"] =
         function () show_message(get_chapterlist(), 3) end
@@ -2147,6 +2197,7 @@ function osc_init()
     ne = new_element("seekbar", "slider")
 
     ne.enabled = not (mp.get_property("percent-pos") == nil)
+    state.slider_element = ne.enabled and ne or nil  -- used for forced_title
     ne.slider.markerF = function ()
         local duration = mp.get_property_number("duration", nil)
         if not (duration == nil) then
@@ -2275,10 +2326,10 @@ function osc_init()
             dmx_cache = state.dmx_cache
         end
         local min = math.floor(dmx_cache / 60)
-        local sec = dmx_cache % 60
+        local sec = math.floor(dmx_cache % 60) -- don't round e.g. 59.9 to 60
         return "Cache: " .. (min > 0 and
             string.format("%sm%02.0fs", min, sec) or
-            string.format("%3.0fs", dmx_cache))
+            string.format("%3.0fs", sec))
     end
 
     -- volume
@@ -2492,7 +2543,14 @@ function render()
     end
 
     -- init management
-    if state.initREQ then
+    if state.active_element then
+        -- mouse is held down on some element - keep ticking and igore initReq
+        -- till it's released, or else the mouse-up (click) will misbehave or
+        -- get ignored. that's because osc_init() recreates the osc elements,
+        -- but mouse handling depends on the elements staying unmodified
+        -- between mouse-down and mouse-up (using the index active_element).
+        request_tick()
+    elseif state.initREQ then
         osc_init()
         state.initREQ = false
 
@@ -2529,14 +2587,10 @@ function render()
             if (state.anitype == "out") then
                 osc_visible(false)
             end
-            state.anistart = nil
-            state.animation = nil
-            state.anitype =  nil
+            kill_animation()
         end
     else
-        state.anistart = nil
-        state.animation = nil
-        state.anitype =  nil
+        kill_animation()
     end
 
     --mouse show/hide area
@@ -2719,8 +2773,10 @@ function process_event(source, what)
         if element_has_action(elements[n], action) then
             elements[n].eventresponder[action](elements[n])
         end
-        request_tick()
     end
+
+    -- ensure rendering after any (mouse) event - icons could change etc
+    request_tick()
 end
 
 
@@ -2806,7 +2862,17 @@ function tick()
     state.tick_last_time = mp.get_time()
 
     if state.anitype ~= nil then
-        request_tick()
+        -- state.anistart can be nil - animation should now start, or it can
+        -- be a timestamp when it started. state.idle has no animation.
+        if not state.idle and
+           (not state.anistart or
+            mp.get_time() < 1 + state.anistart + user_opts.fadeduration/1000)
+        then
+            -- animating or starting, or still within 1s past the deadline
+            request_tick()
+        else
+            kill_animation()
+        end
     end
 end
 
@@ -2834,6 +2900,28 @@ function enable_osc(enable)
     end
 end
 
+-- duration is observed for the sole purpose of updating chapter markers
+-- positions. live streams with chapters are very rare, and the update is also
+-- expensive (with request_init), so it's only observed when we have chapters
+-- and the user didn't disable the livemarkers option (update_duration_watch).
+function on_duration() request_init() end
+
+local duration_watched = false
+function update_duration_watch()
+    local want_watch = user_opts.livemarkers and
+                       (mp.get_property_number("chapters", 0) or 0) > 0 and
+                       true or false  -- ensure it's a boolean
+
+    if (want_watch ~= duration_watched) then
+        if want_watch then
+            mp.observe_property("duration", nil, on_duration)
+        else
+            mp.unobserve_property(on_duration)
+        end
+        duration_watched = want_watch
+    end
+end
+
 -- mpv_thumbnail_script.lua --
 
 local builtin_osc_enabled = mp.get_property_native('osc')
@@ -2850,11 +2938,16 @@ end
 
 
 validate_user_opts()
+update_duration_watch()
 
 mp.register_event("shutdown", shutdown)
 mp.register_event("start-file", request_init)
 mp.observe_property("track-list", nil, request_init)
 mp.observe_property("playlist", nil, request_init)
+mp.observe_property("chapter-list", nil, function()
+    update_duration_watch()
+    request_init()
+end)
 
 mp.register_script_message("osc-message", show_message)
 mp.register_script_message("osc-chapterlist", function(dur)
@@ -2990,6 +3083,7 @@ function visibility_mode(mode, no_osd)
     end
 
     user_opts.visibility = mode
+    utils.shared_script_property_set("osc-visibility", mode)
 
     if not no_osd and tonumber(mp.get_property("osd-level")) >= 1 then
         mp.osd_message("OSC visibility: " .. mode)
