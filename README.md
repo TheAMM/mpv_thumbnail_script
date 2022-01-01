@@ -155,4 +155,4 @@ You may also, of course, just `cat` the files together yourself. See the [`cat_o
 #### Footnotes
 <sup>1</sup>You *may* need to add `mpv[.exe]` to your `PATH` (and *will* have to add `ffmpeg[.exe]` if you want faster generation).
 
-<sup>2</sup>Developed & tested on Windows and Linux (Ubuntu), but it *should* work on Mac and whatnot as well, if <sup>1</sup> has been taken care of.
+<sup>2</sup>Tested on Linux (Arch), but it *should* work on Windows/Mac and whatnot as well, if <sup>1</sup> has been taken care of.
