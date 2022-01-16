@@ -11,11 +11,18 @@ import subprocess
 import datetime
 
 
-parser = argparse.ArgumentParser(description="Concatenate files to a target file, optionally writing target-changes back to source files")
+parser = argparse.ArgumentParser(
+    description="Concatenate files to a target file, optionally writing target-changes back to source files"
+)
 
 parser.add_argument('config_file', metavar='CONFIG_FILE', help='Configuration file for concat')
 parser.add_argument('-o', '--output', metavar='OUTPUT', help='Override output filename')
-parser.add_argument('-w', '--watch', action='store_true', help='Watch files for any changes and map them between the target and source files')
+parser.add_argument(
+    '-w',
+    '--watch',
+    action='store_true',
+    help='Watch files for any changes and map them between the target and source files',
+)
 parser.add_argument('-r', '--release', action='store_true', help='Build a version without the section dividers')
 
 
@@ -25,11 +32,11 @@ class FileWatcher(object):
         self._mtimes = self._get_mtimes()
 
     def _get_mtimes(self):
-        return { filename : os.path.getmtime(filename) for filename in self.file_list if os.path.exists(filename) }
+        return {filename: os.path.getmtime(filename) for filename in self.file_list if os.path.exists(filename)}
 
     def get_changes(self):
         mtimes = self._get_mtimes()
-        changes = [ filename for filename in self.file_list if self._mtimes.get(filename, 0) < mtimes.get(filename, 0) ]
+        changes = [filename for filename in self.file_list if self._mtimes.get(filename, 0) < mtimes.get(filename, 0)]
         self._mtimes.update(mtimes)
         return changes
 
@@ -63,15 +70,14 @@ class FileSection(object):
         with open(filename, 'r', encoding='utf-8') as in_file:
             content = in_file.read()
 
-        return cls(filename=filename,
-                   content=content,
-                   modified=modified_time)
-                   # hash=hash)
+        return cls(filename=filename, content=content, modified=modified_time)
+        # hash=hash)
 
 
 class Concatter(object):
     SECTION_REGEX_BASE = r'FileConcat-([SE]) (.+?) HASH:(.+?)'
     SECTION_HEADER_FORMAT_BASE = 'FileConcat-{kind} {filename} HASH:{hash}'
+
     def __init__(self, config, working_directory=''):
         self.output_filename = config.get('output', 'output.txt')
         self.file_list = config.get('files', [])
@@ -83,9 +89,16 @@ class Concatter(object):
 
         self.newline = '\n'
 
-        self.section_header_format = self.section_header_prefix + self.SECTION_HEADER_FORMAT_BASE + self.section_header_suffix
-        self.section_header_regex = re.compile(r'^' + re.escape(self.section_header_prefix) + self.SECTION_REGEX_BASE + re.escape(self.section_header_suffix) + r'$')
-
+        self.section_header_format = (
+            self.section_header_prefix + self.SECTION_HEADER_FORMAT_BASE + self.section_header_suffix
+        )
+        self.section_header_regex = re.compile(
+            r'^'
+            + re.escape(self.section_header_prefix)
+            + self.SECTION_REGEX_BASE
+            + re.escape(self.section_header_suffix)
+            + r'$'
+        )
 
     def split_output_file(self):
         file_sections = []
@@ -123,7 +136,6 @@ class Concatter(object):
 
         return file_sections
 
-
     def read_source_files(self):
         file_sections = []
 
@@ -141,7 +153,7 @@ class Concatter(object):
 
                 # Figure out newline to be used
                 # if self.newline is None:
-                    # self.newline = '\r\n' if '\r\n' in file_section.content else '\n'
+                # self.newline = '\r\n' if '\r\n' in file_section.content else '\n'
 
                 if not file_section.content.endswith(self.newline):
                     file_section.content += self.newline
@@ -150,24 +162,29 @@ class Concatter(object):
             file_sections.append(file_section)
         return file_sections
 
-
     def concatenate_file_sections(self, file_sections, insert_section_headers=True):
         with open(self.output_filename, 'w', newline='\n', encoding='utf-8') as out_file:
             for file_section in file_sections:
                 if insert_section_headers:
                     section_hash = binascii.hexlify(file_section.recalculate_hash()).decode()
 
-                    out_file.write(self.section_header_format.format(kind='S', filename=file_section.filename, hash=section_hash) + self.newline)
+                    out_file.write(
+                        self.section_header_format.format(kind='S', filename=file_section.filename, hash=section_hash)
+                        + self.newline
+                    )
                     out_file.write(file_section.content)
-                    out_file.write(self.section_header_format.format(kind='E', filename=file_section.filename, hash=section_hash) + self.newline)
+                    out_file.write(
+                        self.section_header_format.format(kind='E', filename=file_section.filename, hash=section_hash)
+                        + self.newline
+                    )
                 else:
                     out_file.write(file_section.content)
-
 
     def write_file_sections_back(self, file_sections):
         for file_section in file_sections:
             # Skip version metafile
-            if file_section is self.version_metafile: continue
+            if file_section is self.version_metafile:
+                continue
 
             file_path = os.path.join(self.working_directory, file_section.filename)
 
@@ -182,7 +199,6 @@ class Concatter(object):
             with open(file_path, 'w', newline='\n', encoding='utf-8') as out_file:
                 out_file.write(file_section.content)
 
-
     def _map_sections(self, source_sections, target_sections):
         target_map = {s.filename: s for s in target_sections}
 
@@ -190,15 +206,16 @@ class Concatter(object):
         target_to_source = []
 
         for source_section in source_sections:
-            if source_section is self.version_metafile: continue
+            if source_section is self.version_metafile:
+                continue
 
             target_section = target_map.get(source_section.filename)
 
             if not target_section:
                 # Target doesn't have this section at all (or is completely empty)
-                source_to_target.append(source_section) # Write section to target file
+                source_to_target.append(source_section)  # Write section to target file
             else:
-                source_section.old_hash = target_section.old_hash # Used to check changes on rewrite
+                source_section.old_hash = target_section.old_hash  # Used to check changes on rewrite
                 source_newer = source_section.modified > target_section.modified
 
                 # Target and source differ
@@ -208,7 +225,7 @@ class Concatter(object):
                         source_to_target.append(source_section)
                     else:
                         # Use target section to rewrite target section AND source file
-                        target_section.old_hash = target_section.hash # Hack to skip target rewrite
+                        target_section.old_hash = target_section.hash  # Hack to skip target rewrite
                         source_to_target.append(target_section)
                         target_to_source.append(target_section)
                 else:
@@ -216,7 +233,6 @@ class Concatter(object):
                     source_to_target.append(source_section)
 
         return source_to_target, target_to_source
-
 
     def process_changes_in_files(self):
         source_sections = self.read_source_files()
@@ -241,9 +257,27 @@ class Concatter(object):
 def _create_version_metafile(config, config_dirname):
     repo_dir = os.path.join(config_dirname, config.get('repo_dir', ''))
     try:
-        git_branch = subprocess.check_output(['git', '-C', repo_dir, 'symbolic-ref', '--short', '-q', 'HEAD'], stderr=subprocess.DEVNULL).decode().strip()
-        git_commit = subprocess.check_output(['git', '-C', repo_dir, 'rev-parse', '--short', '-q', 'HEAD'], stderr=subprocess.DEVNULL).decode().strip()
-        git_tag = subprocess.check_output(['git', '-C', repo_dir, 'describe', '--tags', '--abbrev=0'], stderr=subprocess.DEVNULL).decode().strip()
+        git_branch = (
+            subprocess.check_output(
+                ['git', '-C', repo_dir, 'symbolic-ref', '--short', '-q', 'HEAD'], stderr=subprocess.DEVNULL
+            )
+            .decode()
+            .strip()
+        )
+        git_commit = (
+            subprocess.check_output(
+                ['git', '-C', repo_dir, 'rev-parse', '--short', '-q', 'HEAD'], stderr=subprocess.DEVNULL
+            )
+            .decode()
+            .strip()
+        )
+        git_tag = (
+            subprocess.check_output(
+                ['git', '-C', repo_dir, 'describe', '--tags', '--abbrev=0'], stderr=subprocess.DEVNULL
+            )
+            .decode()
+            .strip()
+        )
     except:
         git_branch = None
         git_commit = None
@@ -261,14 +295,12 @@ def _create_version_metafile(config, config_dirname):
         git_tag = 'unknown'
 
     template_data = {
-        'version' : git_tag,
-
-        'branch' : git_branch,
-        'commit' : git_commit,
-        'commit_short' : git_commit_short,
-
-        'now' : datetime.datetime.now(),
-        'utc_now' : datetime.datetime.utcnow(),
+        'version': git_tag,
+        'branch': git_branch,
+        'commit': git_commit,
+        'commit_short': git_commit_short,
+        'now': datetime.datetime.now(),
+        'utc_now': datetime.datetime.utcnow(),
     }
 
     version_template_file = config.get('version_template_file')

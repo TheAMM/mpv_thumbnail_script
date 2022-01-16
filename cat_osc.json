@@ -1,6 +1,6 @@
 {
-	"output" : "mpv_thumbnail_script_client_osc.lua",
-	"files" : [
+	"output": "mpv_thumbnail_script_client_osc.lua",
+	"files": [
 		"src/license_blurb.lua",
 		"<version>",
 		"lib/helpers.lua",
@@ -9,9 +9,7 @@
 		"src/thumbnailer_shared.lua",
 		"src/patched_osc.lua"
 	],
-
-	"version_template_file" : "src/version.tmpl.lua",
-
-	"header_prefix" : "--[ ",
-	"header_suffix" : " ]--"
+	"version_template_file": "src/version.tmpl.lua",
+	"header_prefix": "--[ ",
+	"header_suffix": " ]--"
 }
