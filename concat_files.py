@@ -243,9 +243,11 @@ def _create_version_metafile(config, config_dirname):
     try:
         git_branch = subprocess.check_output(['git', '-C', repo_dir, 'symbolic-ref', '--short', '-q', 'HEAD'], stderr=subprocess.DEVNULL).decode().strip()
         git_commit = subprocess.check_output(['git', '-C', repo_dir, 'rev-parse', '--short', '-q', 'HEAD'], stderr=subprocess.DEVNULL).decode().strip()
+        git_tag = subprocess.check_output(['git', '-C', repo_dir, 'describe', '--tags', '--abbrev=0'], stderr=subprocess.DEVNULL).decode().strip()
     except:
         git_branch = None
         git_commit = None
+        git_tag = None
 
     if not git_branch:
         git_branch = 'unknown'
@@ -255,15 +257,11 @@ def _create_version_metafile(config, config_dirname):
     else:
         git_commit = git_commit_short = 'unknown'
 
-    project_version_file = config.get('version_file')
-    if project_version_file:
-        with open(project_version_file, 'r') as in_file:
-            project_version = in_file.read().strip()
-    else:
-        project_version = 'unknown'
+    if not git_tag:
+        git_tag = 'unknown'
 
     template_data = {
-        'version' : project_version,
+        'version' : git_tag,
 
         'branch' : git_branch,
         'commit' : git_commit,
@@ -352,4 +350,3 @@ if __name__ == '__main__':
                 file_watcher.get_changes()
 
             time.sleep(0.25)
-

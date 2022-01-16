@@ -10,7 +10,6 @@
 		"src/patched_osc.lua"
 	],
 
-	"version_file" : "version.txt",
 	"version_template_file" : "src/version.tmpl.lua",
 
 	"header_prefix" : "--[ ",
