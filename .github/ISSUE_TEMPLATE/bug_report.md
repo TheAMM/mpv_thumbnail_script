@@ -25,12 +25,14 @@ Run mpv with `mpv --msg-level=mpv_thumbnail_script_server=debug,mpv_thumbnail_sc
 
 <details>
 <summary>Log</summary>
+
 ```
 
 Insert
 here
 
 ```
+
 </details>
 
 **Environment**
@@ -42,4 +44,3 @@ here
 
 **Additional context**
 Add any other context about the problem here.
-```
