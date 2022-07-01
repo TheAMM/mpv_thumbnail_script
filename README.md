@@ -137,7 +137,7 @@ remote_direct_stream=[yes/no]
 
 # Parameter that mpv should use for hardware decoding
 # If properly configured can really improve thumbnail generation speed and cpu load
-# Default to no, see [mpv's manual](https://mpv.io/manual/master/#options-hwdec) for the values
+# Default to no, see https://mpv.io/manual/master/#options-hwdec for the values
 mpv_hwdec=no
 ```
 (see [`src/options.lua`](/src/options.lua) for all possible options)
