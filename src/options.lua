@@ -33,6 +33,8 @@ local thumbnailer_options = {
     -- Add a "--profile=<mpv_profile>" to the mpv sub-call arguments
     -- Use "" to disable
     mpv_profile = "",
+    -- Hardware decoding
+    mpv_hwdec = "no",
     -- Output debug logs to <thumbnail_path>.log, ala <cache_directory>/<video_filename>/000000.bgra.log
     -- The logs are removed after successful encodes, unless you set mpv_keep_logs below
     mpv_logs = true,

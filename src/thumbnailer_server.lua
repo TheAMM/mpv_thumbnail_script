@@ -38,8 +38,8 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         -- Pass User-Agent and Referer - should do no harm even with ytdl active
         "--user-agent=" .. mp.get_property_native("user-agent"),
         "--referrer=" .. mp.get_property_native("referrer"),
-        -- Disable hardware decoding
-        "--hwdec=no",
+        -- User set hardware decoding
+        "--hwdec=" .. thumbnailer_options.mpv_hwdec,
 
         -- Insert --no-config, --profile=... and --log-file if enabled
         (thumbnailer_options.mpv_no_config and "--no-config" or nil),
