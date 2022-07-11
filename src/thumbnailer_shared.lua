@@ -313,17 +313,19 @@ function Thumbnailer:register_client()
     end)
 
     -- Notify workers to generate thumbnails when video loads/changes
-    -- This will be executed after the on_video_change (because it's registered after it)
-    mp.observe_property("video-dec-params", "native", function()
-        local duration = mp.get_property_native("duration")
-        local max_duration = thumbnailer_options.autogenerate_max_duration
+    mp.observe_property("video-dec-params", "native", function(name, params)
+        Thumbnailer:on_video_change(params)
+        self:check_storyboard_async(function()
+            local duration = mp.get_property_native("duration")
+            local max_duration = thumbnailer_options.autogenerate_max_duration
 
-        if duration ~= nil and self.state.available and thumbnailer_options.autogenerate then
-            -- Notify if autogenerate is on and video is not too long
-            if duration < max_duration or max_duration == 0 then
-                self:start_worker_jobs()
+            if duration ~= nil and self.state.available and thumbnailer_options.autogenerate then
+                -- Notify if autogenerate is on and video is not too long
+                if duration < max_duration or max_duration == 0 then
+                    self:start_worker_jobs()
+                end
             end
-        end
+        end)
     end)
 
     local thumb_script_key = not thumbnailer_options.disable_keybinds and "T" or nil
@@ -468,4 +470,3 @@ function Thumbnailer:start_worker_jobs()
 end
 
 mp.register_event("start-file", function() Thumbnailer:on_start_file() end)
-mp.observe_property("video-dec-params", "native", function(name, params) Thumbnailer:on_video_change(params) end)
