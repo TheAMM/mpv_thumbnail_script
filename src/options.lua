@@ -118,6 +118,9 @@ local thumbnailer_options = {
     -- Try to grab the raw stream and disable ytdl for the mpv subcalls
     -- Much faster than passing the url to ytdl again, but may cause problems with some sites
     remote_direct_stream = true,
+
+    -- Enable storyboards (requires yt-dlp in PATH). Currently only supports YouTube
+    storyboard_enable = true,
 }
 
 read_options(thumbnailer_options, SCRIPT_NAME)

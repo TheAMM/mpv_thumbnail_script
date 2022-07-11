@@ -24,6 +24,9 @@ local Thumbnailer = {
         worker_input_path = nil,
         -- Extra options for the workers
         worker_extra = {},
+
+        -- Storyboard urls
+        storyboard_url = nil,
     },
     -- Set in register_client
     worker_register_timeout = nil,
@@ -39,6 +42,7 @@ function Thumbnailer:clear_state()
     self.state.finished_thumbnails = 0
     self.state.thumbnails = {}
     self.state.worker_extra = {}
+    self.state.storyboard_url = nil
 end
 
 
@@ -73,6 +77,40 @@ function Thumbnailer:on_video_change(params)
         if not self.state.ready then
             self:update_state()
         end
+    end
+end
+
+-- Check for storyboards existance with yt-dlp and call back (may take a long time)
+function Thumbnailer:check_storyboard_async(callback)
+    if thumbnailer_options.storyboard_enable and self.state.is_remote then
+        msg.info("Trying to get storyboard info...")
+        local sb_cmd = {"yt-dlp", "--format", "sb0", "--dump-json",
+                        "--extractor-args", "youtube:skip=hls,dash,translated_subs", -- yt speedup
+                        "--", mp.get_property_native("path")}
+
+        mp.command_native_async({name="subprocess", args=sb_cmd, capture_stdout=true}, function(success, sb_json)
+            if success and sb_json.status == 0 then
+                local sb = utils.parse_json(sb_json.stdout)
+                if sb ~= nil and sb.duration and sb.width and sb.height and #sb.fragments > 1 then
+                    self.state.storyboard_url = sb.fragments
+                    self.state.thumbnail_size = {w=sb.width, h=sb.height}
+                    -- estimate the count of thumbnails
+                    -- assume 5x5 atlas (sb0)
+                    self.state.thumbnail_delta = sb.fragments[1].duration / (5*5) -- first atlas is always full
+                    self.state.thumbnail_count = math.floor(sb.duration / self.state.thumbnail_delta)
+                    -- Prefill individual thumbnail states
+                    self.state.thumbnails = {}
+                    for i = 1, self.state.thumbnail_count do
+                        self.state.thumbnails[i] = -1
+                    end
+                    msg.info("Storyboard info acquired! " .. self.state.thumbnail_count)
+                    self.state.available = true
+                end
+            end
+            callback()
+        end)
+    else
+        callback()
     end
 end
 
