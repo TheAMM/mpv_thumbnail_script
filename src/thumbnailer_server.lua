@@ -55,7 +55,8 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         -- Optionally disable subtitles
         (thumbnailer_options.mpv_no_sub and "--no-sub" or nil),
 
-        ("--vf=scale=%d:%d"):format(size.w, size.h),
+        (options.no_scale == nil and ("--vf=scale=%d:%d"):format(size.w, size.h) or nil),
+
         "--vf-add=format=bgra",
         "--of=rawvideo",
         "--ovc=rawvideo",
@@ -65,8 +66,10 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
 end
 
 
-function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path)
-    local ffmpeg_command = {
+function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path, options)
+    options = options or {}
+
+    local ffmpeg_command = skip_nil({
         "ffmpeg",
         "-loglevel", "quiet",
         "-noaccurate_seek",
@@ -76,13 +79,13 @@ function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path)
         "-frames:v", "1",
         "-an",
 
-        "-vf", ("scale=%d:%d"):format(size.w, size.h),
+        (options.no_scale == nil and "-vf" or nil), (options.no_scale == nil and ("scale=%d:%d"):format(size.w, size.h) or nil),
         "-c:v", "rawvideo",
         "-pix_fmt", "bgra",
         "-f", "rawvideo",
 
         "-y", output_path
-    }
+    })
     return utils.subprocess({args=ffmpeg_command})
 end
 
