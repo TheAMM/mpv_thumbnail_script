@@ -282,7 +282,7 @@ function Thumbnailer:register_client()
 
         if duration ~= nil and self.state.available and thumbnailer_options.autogenerate then
             -- Notify if autogenerate is on and video is not too long
-            if duration < max_duration or max_duration == 0 then
+            if duration and duration < max_duration or max_duration and max_duration == 0 then
                 self:start_worker_jobs()
             end
         end
