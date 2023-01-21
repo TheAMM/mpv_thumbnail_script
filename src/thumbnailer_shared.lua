@@ -2,6 +2,9 @@ local Thumbnailer = {
     cache_directory = thumbnailer_options.cache_directory,
 
     state = {
+        -- Used to make sure updates sent to us by workers correspond to the
+        -- current state (the video hasn't changed)
+        id = 0,
         ready = false,
         available = false,
         enabled = false,
@@ -33,7 +36,10 @@ local Thumbnailer = {
 }
 
 function Thumbnailer:clear_state()
+    local prev_state_id = self.state.id
+
     clear_table(self.state)
+    self.state.id = prev_state_id + 1
     self.state.ready = false
     self.state.available = false
     self.state.finished_thumbnails = 0
@@ -46,7 +52,11 @@ function Thumbnailer:on_file_loaded()
     self:clear_state()
 end
 
-function Thumbnailer:on_thumb_ready(index)
+function Thumbnailer:on_thumb_ready(state_id, index)
+    if self.state.id ~= state_id then
+      return
+    end
+
     self.state.thumbnails[index] = 1
 
     -- Full recount instead of a naive increment (let's be safe!)
@@ -58,7 +68,11 @@ function Thumbnailer:on_thumb_ready(index)
     end
 end
 
-function Thumbnailer:on_thumb_progress(index)
+function Thumbnailer:on_thumb_progress(state_id, index)
+    if self.state.id ~= state_id then
+      return
+    end
+
     self.state.thumbnails[index] = math.max(self.state.thumbnails[index], 0)
 end
 
@@ -93,13 +107,13 @@ function Thumbnailer:update_state()
 
     self.state.ready = true
 
-    local file_path = mp.get_property_native("path")
+    local file_path = mp.get_property_native("path", "")
     self.state.is_remote = file_path:find("://") ~= nil
 
     self.state.available = false
 
     -- Make sure the file has video (and not just albumart)
-    local track_list = mp.get_property_native("track-list")
+    local track_list = mp.get_property_native("track-list", {})
     local has_video = false
     for i, track in pairs(track_list) do
         if track.type == "video" and not track.external and not track.albumart then
@@ -118,10 +132,10 @@ end
 
 
 function Thumbnailer:get_thumbnail_template()
-    local file_path = mp.get_property_native("path")
+    local file_path = mp.get_property_native("path", "")
     local is_remote = file_path:find("://") ~= nil
 
-    local filename = mp.get_property_native("filename/no-ext")
+    local filename = mp.get_property_native("filename/no-ext", "")
     local filesize = mp.get_property_native("file-size", 0)
 
     if is_remote then
@@ -143,7 +157,7 @@ end
 
 
 function Thumbnailer:get_thumbnail_size()
-    local video_dec_params = mp.get_property_native("video-dec-params")
+    local video_dec_params = mp.get_property_native("video-dec-params", {})
     local video_width = video_dec_params.dw
     local video_height = video_dec_params.dh
     if not (video_width and video_height) then
@@ -163,7 +177,7 @@ end
 
 
 function Thumbnailer:get_delta()
-    local file_path = mp.get_property_native("path")
+    local file_path = mp.get_property_native("path", "")
     local file_duration = mp.get_property_native("duration")
     local is_seekable = mp.get_property_native("seekable")
 
@@ -201,8 +215,8 @@ function Thumbnailer:get_thumbnail_count(delta)
     if delta == nil then
         return 0
     end
-    local file_duration = mp.get_property_native("duration")
 
+    local file_duration = mp.get_property_native("duration", 0)
     return math.ceil(file_duration / delta)
 end
 
@@ -259,11 +273,11 @@ end
 function Thumbnailer:register_client()
     self.worker_register_timeout = mp.get_time() + 2
 
-    mp.register_script_message("mpv_thumbnail_script-ready", function(index, path)
-        self:on_thumb_ready(tonumber(index), path)
+    mp.register_script_message("mpv_thumbnail_script-ready", function(state_id, index, path)
+        self:on_thumb_ready(tonumber(state_id), tonumber(index), path)
     end)
-    mp.register_script_message("mpv_thumbnail_script-progress", function(index, path)
-        self:on_thumb_progress(tonumber(index), path)
+    mp.register_script_message("mpv_thumbnail_script-progress", function(state_id, index, path)
+        self:on_thumb_progress(tonumber(state_id), tonumber(index), path)
     end)
 
     mp.register_script_message("mpv_thumbnail_script-worker", function(worker_name)
@@ -320,13 +334,13 @@ function Thumbnailer:_create_thumbnail_job_order()
 end
 
 function Thumbnailer:prepare_source_path()
-    local file_path = mp.get_property_native("path")
+    local file_path = mp.get_property_native("path", "")
 
     if self.state.is_remote and thumbnailer_options.remote_direct_stream then
         -- Use the direct stream (possibly) provided by ytdl
         -- This skips ytdl on the sub-calls, making the thumbnailing faster
         -- Works well on YouTube, rest not really tested
-        file_path = mp.get_property_native("stream-path")
+        file_path = mp.get_property_native("stream-path", "")
 
         -- edl:// urls can get LONG. In which case, save the path (URL)
         -- to a temporary file and use that instead.
@@ -336,7 +350,7 @@ function Thumbnailer:prepare_source_path()
             -- Path is too long for a playlist - just pass the original URL to
             -- workers and allow ytdl
             self.state.worker_extra.enable_ytdl = true
-            file_path = mp.get_property_native("path")
+            file_path = mp.get_property_native("path", "")
             msg.warn("Falling back to original URL and ytdl due to LONG source path. This will be slow.")
 
         elseif #file_path > 1024 then
@@ -371,7 +385,7 @@ function Thumbnailer:start_worker_jobs()
         return
     end
 
-    local worker_list = {}
+    local worker_list = { state_id = self.state.id }
     for worker_name in pairs(self.workers) do table.insert(worker_list, worker_name) end
 
     local worker_count = #worker_list
